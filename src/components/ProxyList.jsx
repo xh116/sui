@@ -132,8 +132,7 @@ export default function ProxyList() {
   };
 
   return (
-    <div className="overflow-y-auto relative  ">
-      {/* 顶部标题 + 一键测试 + 全部展开/折叠 */}
+    <div className="overflow-y-auto relative">
       <div className="flex justify-between items-center mb-2 mt-4">
         <h1 className="text-xl font-bold mb-5">Proxies</h1>
 
@@ -206,7 +205,7 @@ export default function ProxyList() {
 
           {/*   TestAll 按钮 */}
           <button
-            className="hover:text-yellow-200 disabled:opacity-50 flex items-center gap-1 pr-4"
+            className="hover:text-yellow-200 disabled:opacity-50 flex items-center gap-1 pr-2"
             onClick={() => {
               abortRef.current?.();
               setTestingAll(true);
@@ -251,13 +250,14 @@ export default function ProxyList() {
         const isOpen = expanded[group];
 
         return (
-          <div key={group} className="mb-2 pl-2 pr-2">
-            {/* 分组标题 */}
-            <div className="flex justify-between items-center">
-              <div className="flex-1 py-2 px-1 rounded-md transition flex items-center gap-2">
-                {/* 图标：点击/右键/长按 */}
+          <div key={group} className="my-4 pl-2 pr-2">
+            {/* ===== 标题行（永远显示） ===== */}
+            <div className="flex justify-between items-center my-4">
+              {/* 左侧：组图标 + 组名 + 箭头 + 类型 */}
+              <div className="flex items-center gap-3">
+                {/* 图标 */}
                 <div
-                  className="cursor-pointer relative z-10"
+                  className="cursor-pointer"
                   onClick={() => handleToggleGroup(group)}
                   onContextMenu={(e) => handleContextMenu(e, group)}
                   onTouchStart={(e) => handleTouchStart(e, group)}
@@ -266,9 +266,9 @@ export default function ProxyList() {
                   <ProxyGroupIcon src={groupIcons[group]} />
                 </div>
 
-                {/* 文字：点击/右键/长按 */}
+                {/* 组名 */}
                 <span
-                  className="font-bold select-text cursor-pointer relative z-10"
+                  className="font-bold hover:text-white select-text cursor-pointer"
                   onClick={() => handleToggleGroup(group)}
                   onContextMenu={(e) => handleContextMenu(e, group)}
                   onTouchStart={(e) => handleTouchStart(e, group)}
@@ -277,13 +277,12 @@ export default function ProxyList() {
                   {group}
                 </span>
 
-                {/* 箭头：点击/右键/长按 */}
+                {/* 箭头 */}
                 <svg
                   onClick={() => handleToggleGroup(group)}
-                  className={`w-4 h-4 ml-1 transition-all duration-200 cursor-pointer
-                  ${isOpen ? "rotate-180" : ""}
-                  text-white opacity-70
-                  hover:text-gray-200 hover:scale-130 hover:opacity-100`}
+                  className={`w-5 h-5 ml-1 text-gray-300 hover:text-white hover:scale-130 transition-all duration-200 cursor-pointer ${
+                    isOpen ? "rotate-180" : ""
+                  }`}
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -291,18 +290,19 @@ export default function ProxyList() {
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    strokeWidth={3}
+                    strokeWidth={2}
                     d="M19 9l-7 7-7-7"
                   />
                 </svg>
 
+                {/* 类型文字 */}
                 <span className="ml-2 text-[10px] text-gray-500 hidden sm:inline">
                   {groupTypes[group]}
                 </span>
               </div>
 
-              {/* 延迟方块 */}
-              <div className="flex gap-1 flex-wrap ml-6 mr-3">
+              {/* 右侧：小方格 + 闪电按钮  */}
+              <div className="flex items-center gap-1">
                 {nodes.map((node) => {
                   const nodeName = node?.name ?? "";
                   const d =
@@ -317,79 +317,79 @@ export default function ProxyList() {
                     />
                   );
                 })}
-              </div>
-              {/* 闪电图标 */}
-              <button
-                className="mr-3 disabled:opacity-50"
-                onClick={() => {
-                  abortRef.current?.();
-                  const { promise, abort } = testDelaysInBatch(
-                    nodes,
-                    5,
-                    (partial) => setDelays((prev) => ({ ...prev, ...partial })),
-                    200,
-                  );
-                  abortRef.current = abort;
-                  promise.then(() => {});
-                }}
-                title="TestAll Latency"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="w-5 h-5 hover:text-yellow-400 text-white"
-                  fill="currentColor"
-                  viewBox="0 0 24 24"
+
+                {/* 闪电按钮 */}
+                <button
+                  className="ml-2 disabled:opacity-50"
+                  onClick={() => {
+                    abortRef.current?.();
+                    const { promise, abort } = testDelaysInBatch(
+                      nodes,
+                      5,
+                      (partial) =>
+                        setDelays((prev) => ({ ...prev, ...partial })),
+                      200,
+                    );
+                    abortRef.current = abort;
+                    promise.then(() => {});
+                  }}
+                  title="TestAll Latency"
                 >
-                  <path d="M13 2L3 14h7v8l11-14h-7l-1-6z" />
-                </svg>
-              </button>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-5 h-5 hover:text-yellow-400 text-white"
+                    fill="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="M13 2L3 14h7v8l11-14h-7l-1-6z" />
+                  </svg>
+                </button>
+              </div>
             </div>
 
-            {/* 节点卡片 */}
+            {/* ===== 折叠容器（只包含节点列表） ===== */}
             <div
-              className={`transition-all duration-300 ease-in-out   ${
-                isOpen ? "max-h-[1000px] opacity-100" : "max-h-0 opacity-0"
+              className={`transition-all duration-300 ease-in-out ${
+                isOpen ? "max-h-[1000px] opacity-100 mt-2 scale-100" : "max-h-0 opacity-0 mt-8" 
               }`}
             >
-              <div className="grid grid-cols-[repeat(auto-fit,minmax(165px,1fr))] gap-3 mt-2">
-                {nodes.map((node) => {
-                  const nodeName = node?.name ?? "";
-                  const lastDelay =
-                    delays[nodeName] ?? node?.history?.at(-1)?.delay ?? "N/A";
-                  const isActive = current[group] === nodeName;
+              {isOpen && (
+                <div className="grid grid-cols-[repeat(auto-fit,minmax(165px,1fr))] gap-4 mt-2">
+                  {nodes.map((node) => {
+                    const nodeName = node?.name ?? "";
+                    const lastDelay =
+                      delays[nodeName] ?? node?.history?.at(-1)?.delay ?? "N/A";
+                    const isActive = current[group] === nodeName;
 
-                  return (
-                    <div
-                      key={nodeName}
-                      className={`relative p-1 h-12 rounded-lg cursor-pointer transition
-                      ${
-                        isActive
-                          ? "bg-[#212b2e] text-gray-200/80 transition-transform hover:scale-[1.02] hover:shadow-[0_4px_12px_rgba(0,0,0,0.6)]"
-                          : "bg-[#212d30]/60 p-1 transition-transform hover:scale-[1.02] hover:shadow-[2px_6px_14px_rgba(0,0,0,0.5)]"
-                      }`}
-                      onClick={() => handleSelect(group, nodeName)}
-                    >
-                      {/* 节点名 */}
-                      <p className="font-normal text-xs truncate">{nodeName}</p>
-
-                      {/* ✅ 只有当前活跃节点才显示速率 */}
-                      {isActive && <ProxySpeed proxyName={nodeName} />}
-
-                      {/* 左下角：类型 + 延迟 */}
-                      <div className="flex justify-between items-end mt-3 text-gray-200/50 text-[9px]">
-                        <span className="opacity-70">
-                          {node?.type ?? "Unknown"}
-                        </span>
-                        <span className={delayTextColor(lastDelay)}>
-                          {Number.isFinite(Number(lastDelay))
-                            ? `${lastDelay} ms`
-                            : "N/A"}
-                        </span>
+                    return (
+                      <div
+                        key={nodeName}
+                        className={`relative p-1 h-14 rounded-lg cursor-pointer transition ${
+                          isActive
+                            ? "bg-[#212b2e] text-gray-200/80 transition-transform hover:scale-[1.02] hover:shadow-[0_4px_12px_rgba(0,0,0,0.6)]"
+                            : "bg-[#212d30]/60 p-1 transition-transform hover:scale-[1.02] hover:shadow-[2px_6px_14px_rgba(0,0,0,0.5)]"
+                        }`}
+                        onClick={() => handleSelect(group, nodeName)}
+                      >
+                        <p className="font-normal text-xs truncate">
+                          {nodeName}
+                        </p>
+                        {isActive && <ProxySpeed proxyName={nodeName} />}
+                        <div className="flex justify-between items-end mt-4 text-gray-200/50 text-[9px]">
+                          <span className="opacity-70">
+                            {node?.type ?? "Unknown"}
+                          </span>
+                          <span className={delayTextColor(lastDelay)}>
+                            {Number.isFinite(Number(lastDelay))
+                              ? `${lastDelay} ms`
+                              : "N/A"}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </div>
         );
