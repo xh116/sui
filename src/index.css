@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-bg: #26333a;
+  --color-accent: #c2cbd1;
+  --color-text: #e6edf2;
+}
+
+/* 全局背景渐变 + 半透明 */
+.bg-bg {
+  background: linear-gradient(
+    to bottom right,
+    rgba(38, 51, 58, 0.85),
+    rgba(38, 51, 58, 0.75),
+    rgba(38, 51, 58, 0.6)
+  );
+}
+
+/* 文字 & 边框颜色 */
+.text-text {
+  color: var(--color-text);
+}
+.text-accent {
+  color: var(--color-accent);
+}
+.border-accent {
+  border-color: var(--color-accent);
+}
