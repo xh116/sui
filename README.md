@@ -27,6 +27,16 @@ To enable login during testing:
 5. Set it to **Allow**  
 6. Reload the page
 
+You can also directly add this line in Sing-box config file. 
+```
+{
+    "external_controller": "0.0.0.0:9090",
+    "external_ui": "ui",
+    "external_ui_download_url": "https://github.com/xh116/sui/releases/latest/download/sui.zip",
+    "default_mode": "Rule"
+}
+```
+
 ---
 
 ## 📸 Screenshots
