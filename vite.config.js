@@ -16,6 +16,7 @@ export default defineConfig({
     }
   },
   build: {
-    outDir: "sui"   i
+    outDir: "sui"    
   }
 });
+
