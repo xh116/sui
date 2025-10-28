@@ -207,10 +207,12 @@ export default function ProxyList() {
           <button
             className="hover:text-yellow-200 disabled:opacity-50 flex items-center gap-1 pr-2"
             onClick={() => {
-              abortRef.current?.();
+              if (abortRef.current) {
+                abortRef.current();
+                abortRef.current = null;
+              }
               setTestingAll(true);
 
-              // 去重后的节点集合
               const allNodes = [
                 ...new Map(
                   Object.values(groups)
@@ -226,10 +228,11 @@ export default function ProxyList() {
                 500,
               );
               abortRef.current = abort;
-              promise.finally(() => setTestingAll(false));
+              promise.finally(() => {
+                setTestingAll(false);
+                abortRef.current = null;
+              });
             }}
-            disabled={testingAll}
-            title="TestAll Latency"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -239,8 +242,6 @@ export default function ProxyList() {
             >
               <path d="M13 2L3 14h7v8l11-14h-7l-1-6z" />
             </svg>
-
-            {testingAll}
           </button>
         </div>
       </div>
@@ -252,7 +253,7 @@ export default function ProxyList() {
         return (
           <div key={group} className="my-4 pl-2 pr-2">
             {/* ===== 标题行（永远显示） ===== */}
-            <div className="flex justify-between items-center my-4">
+            <div className="flex justify-between items-center my-2">
               {/* 左侧：组图标 + 组名 + 箭头 + 类型 */}
               <div className="flex items-center gap-3">
                 {/* 图标 */}
@@ -322,7 +323,11 @@ export default function ProxyList() {
                 <button
                   className="ml-2 disabled:opacity-50"
                   onClick={() => {
-                    abortRef.current?.();
+                    if (abortRef.current) {
+                      abortRef.current();
+                      abortRef.current = null;
+                    }
+
                     const { promise, abort } = testDelaysInBatch(
                       nodes,
                       5,
@@ -331,9 +336,10 @@ export default function ProxyList() {
                       200,
                     );
                     abortRef.current = abort;
-                    promise.then(() => {});
+                    promise.finally(() => {
+                      abortRef.current = null;
+                    });
                   }}
-                  title="TestAll Latency"
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -349,47 +355,56 @@ export default function ProxyList() {
 
             {/* ===== 折叠容器（只包含节点列表） ===== */}
             <div
-              className={`transition-all duration-300 ease-in-out ${
-                isOpen ? "max-h-[1000px] opacity-100 mt-2 scale-100" : "max-h-0 opacity-0 mt-8" 
+              className={`transition-all duration-300 ease-in-out overflow-hidden ${
+                isOpen
+                  ? "max-h-[1000px] opacity-100 mt-2 scale-100 overflow-visible"
+                  : "max-h-0 opacity-0 mt-6 scale-95 overflow-hidden"
               }`}
             >
-              {isOpen && (
-                <div className="grid grid-cols-[repeat(auto-fit,minmax(165px,1fr))] gap-3 mt-2">
-                  {nodes.map((node) => {
-                    const nodeName = node?.name ?? "";
-                    const lastDelay =
-                      delays[nodeName] ?? node?.history?.at(-1)?.delay ?? "N/A";
-                    const isActive = current[group] === nodeName;
+              <div className="grid grid-cols-[repeat(auto-fit,minmax(165px,1fr))] gap-3 mt-2">
+                {nodes.map((node) => {
+                  const nodeName = node?.name ?? "";
+                  const lastDelay =
+                    delays[nodeName] ?? node?.history?.at(-1)?.delay ?? "N/A";
+                  const isActive = current[group] === nodeName;
 
-                    return (
-                      <div
-                        key={nodeName}
-                        className={`relative p-1 h-14 rounded-lg cursor-pointer transition ${
-                          isActive
-                            ? "bg-[#212b2e] text-gray-200/80 transition-transform hover:scale-[1.02] hover:shadow-[0_4px_12px_rgba(0,0,0,0.6)]"
-                            : "bg-[#212d30]/60 p-1 transition-transform hover:scale-[1.02] hover:shadow-[2px_6px_14px_rgba(0,0,0,0.5)]"
-                        }`}
-                        onClick={() => handleSelect(group, nodeName)}
-                      >
-                        <p className="font-normal text-xs truncate">
-                          {nodeName}
-                        </p>
-                        {isActive && <ProxySpeed proxyName={nodeName} />}
-                        <div className="flex justify-between items-end mt-4 text-gray-200/50 text-[9px]">
-                          <span className="opacity-70">
-                            {node?.type ?? "Unknown"}
-                          </span>
-                          <span className={delayTextColor(lastDelay)}>
-                            {Number.isFinite(Number(lastDelay))
-                              ? `${lastDelay} ms`
-                              : "N/A"}
-                          </span>
-                        </div>
+                  return (
+                    <div
+                      key={nodeName}
+                      className={`relative p-1 h-14 rounded-lg cursor-pointer transition ${
+                        isActive
+                          ? "bg-[#212b2e] text-gray-200/80 transition-transform hover:scale-[1.02] hover:shadow-[0_4px_12px_rgba(0,0,0,0.6)]"
+                          : "bg-[#212d30]/60 p-1 transition-transform hover:scale-[1.02] hover:shadow-[2px_6px_14px_rgba(0,0,0,0.5)]"
+                      }`}
+                      onClick={() => handleSelect(group, nodeName)}
+                    >
+                      <p className="font-normal text-xs truncate">{nodeName}</p>
+                      {isActive && (
+                        <ProxySpeed
+                          groupName={group}  
+                          proxyName={nodeName}  
+                          type={groupTypes[group]}  
+                          current={
+                            groupTypes[group] === "URLTest"
+                              ? current[group]
+                              : null
+                          }
+                        />
+                      )}
+                      <div className="flex justify-between items-end mt-4 text-gray-200/50 text-[9px]">
+                        <span className="opacity-70">
+                          {node?.type ?? "Unknown"}
+                        </span>
+                        <span className={delayTextColor(lastDelay)}>
+                          {Number.isFinite(Number(lastDelay))
+                            ? `${lastDelay} ms`
+                            : "N/A"}
+                        </span>
                       </div>
-                    );
-                  })}
-                </div>
-              )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         );
