@@ -20,25 +20,41 @@ const VersionIcon = ({ className = "w-4 h-4" }) => (
 );
 
 // 图标：Clash
-const ClashIcon = ({ className = "w-5 h-5" }) => (
+const ClashIcon = ({ width = 72, height = 72 }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
-    className={className}
+    width={width}
+    height={height}
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
-    strokeWidth="1.2"
+    strokeWidth="1"
     strokeLinecap="round"
     strokeLinejoin="round"
   >
-    {/* 猫头圆形 */}
-    <circle cx="12" cy="14" r="6" />
+    {/* 头部 */}
+    <ellipse cx="12" cy="13" rx="8.5" ry="7.5" />
 
-    {/* 左耳朵（往左外歪） */}
-    <polygon points="6,9 9,3 11,9" />
+    {/* 左耳 - 尖一点 */}
+    <path d="M5 6 Q3.2 0.5 6.5 0.2 Q6.5 1.2 9.2 5 Q7.8 5.4 6 6.2 Z" />
 
-    {/* 右耳朵（往右外歪） */}
-    <polygon points="13,9 15,3 18,9" />
+    {/* 右耳 - 对称 */}
+    <path d="M19 6 Q20.8 1 17.5 0.5 Q17.2 1.2 14.8 5 Q16.2 5.4 18 6.2 Z" />
+
+    {/* 眼睛 */}
+    <circle cx="9" cy="12" r="0.8" fill="currentColor" />
+    <circle cx="15" cy="12" r="0.8" fill="currentColor" />
+
+    {/* 嘴巴 */}
+    <path d="M11 17 Q12 18 13 17" />
+
+    {/* 左胡须 */}
+    <line x1="8" y1="15.5" x2="3.5" y2="16.5" />
+    <line x1="8" y1="17.2" x2="3.5" y2="18.2" />
+
+    {/* 右胡须 */}
+    <line x1="16" y1="15.5" x2="20.5" y2="16.5" />
+    <line x1="16" y1="17.2" x2="20.5" y2="18.2" />
   </svg>
 );
 
@@ -196,7 +212,7 @@ export default function Sidebar() {
   const handleLogout = () => {
     localStorage.removeItem("apiBaseUrl");
     localStorage.removeItem("apiSecret");
-    window.dispatchEvent(new Event("storage")); // ✅ 通知 App 更新 hasApi
+    window.dispatchEvent(new Event("storage"));
     navigate("/setup");
   };
 
@@ -242,7 +258,7 @@ export default function Sidebar() {
     ${
       active === key
         ? "text-white font-semibold"
-        : "text-white/70 hover:text-white"
+        : "text-white/60 hover:text-white"
     }
   `}
         >
@@ -264,7 +280,7 @@ export default function Sidebar() {
           <PowerIcon className="w-5 h-5 text-white" />
         </button>
       </div>
-      {/* ✅ 底部 Credit */}
+      {/*  底部 Credit */}
       <div className="hidden md:flex absolute left-5 bottom-1 w-full text-[8px] text-gray-200/30 hover:text-white/70 transition-colors duration-300">
         ♥ Design By Chen
       </div>
