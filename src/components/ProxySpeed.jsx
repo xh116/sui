@@ -1,9 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { subscribeConnections } from "../api/clash";
 
-export default function ProxySpeed({ proxyName }) {
+export default function ProxySpeed({ groupName, proxyName, type, current }) {
   const [speed, setSpeed] = useState({ up: 0, down: 0 });
-  const [lastSnapshot, setLastSnapshot] = useState({}); // { connId: { up, down, time } }
+  const lastSnapshotRef = useRef({});
+
+  const key = `${groupName || "global"}:${proxyName}`;
+  const targetName = type === "URLTest" && current ? current : proxyName;
 
   useEffect(() => {
     const unsub = subscribeConnections((data) => {
@@ -13,30 +16,37 @@ export default function ProxySpeed({ proxyName }) {
         aggDown = 0;
 
       (data.connections || []).forEach((c) => {
-        const node = c.chains && c.chains.length > 0 ? c.chains[0] : "UNKNOWN";
-        if (!c.chains?.includes(proxyName)) return;
+        const chains = c.chains || [];
 
-        const prev = lastSnapshot[c.id];
+        // 只统计当前目标节点
+        if (!chains.includes(targetName)) return;
+
+        // 如果指定了 groupName，只统计该组下的连接
+        if (groupName && !chains.includes(groupName)) return;
+
+        const prev = lastSnapshotRef.current[c.id] || {
+          up: 0,
+          down: 0,
+          time: now,
+        };
         const up = c.upload || 0;
         const down = c.download || 0;
 
-        if (prev) {
-          const dt = (now - prev.time) / 1000;
-          if (dt > 0) {
-            aggUp += Math.max(0, (up - prev.up) / dt);
-            aggDown += Math.max(0, (down - prev.down) / dt);
-          }
+        const dt = (now - prev.time) / 1000;
+        if (dt > 0) {
+          aggUp += Math.max(0, (up - prev.up) / dt);
+          aggDown += Math.max(0, (down - prev.down) / dt);
         }
 
         newSnapshot[c.id] = { up, down, time: now };
       });
 
-      setLastSnapshot(newSnapshot);
+      lastSnapshotRef.current = newSnapshot;
       setSpeed({ up: aggUp, down: aggDown });
     });
 
     return () => unsub();
-  }, [proxyName, lastSnapshot]);
+  }, [key, targetName, groupName]);
 
   const formatSpeed = (n) => {
     if (n < 1024) return `${Math.round(n)} B/s`;
