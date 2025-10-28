@@ -11,7 +11,6 @@ export default function ProxyList() {
   const [groups, setGroups] = useState({});
   const [current, setCurrent] = useState({});
   const [delays, setDelays] = useState({});
-  // 展开状态（加上持久化支持）
   const [expanded, setExpanded] = useState(() => {
     try {
       const saved = localStorage.getItem("expandedGroups");
@@ -135,7 +134,6 @@ export default function ProxyList() {
     <div className="overflow-y-auto relative">
       <div className="flex justify-between items-center mb-2 mt-4">
         <h1 className="text-xl font-bold mb-5">Proxies</h1>
-
         <div className="flex items-center gap-2">
           {/* 全部折叠/展开 按钮（放在 TestAll 左边） */}
           <button
@@ -223,7 +221,7 @@ export default function ProxyList() {
 
               const { promise, abort } = testDelaysInBatch(
                 allNodes,
-                3,
+                5,
                 (partial) => setDelays((prev) => ({ ...prev, ...partial })),
                 500,
               );
@@ -236,7 +234,7 @@ export default function ProxyList() {
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
-              className="w-8 h-8 hover:text-yellow-400 text-white animate-pulse"
+              className="w-8 h-8 hover:text-yellow-400 text-white"
               fill="currentColor"
               viewBox="0 0 24 24"
             >
@@ -251,12 +249,11 @@ export default function ProxyList() {
         const isOpen = expanded[group];
 
         return (
-          <div key={group} className="my-4 pl-2 pr-2">
-            {/* ===== 标题行（永远显示） ===== */}
-            <div className="flex justify-between items-center my-2">
+          <div key={group} className="my-2 pl-2 pr-2 pb-2 ">
+            {/* ===== 标题行 ===== */}
+            <div className="flex flex-wrap items-center my-4">
               {/* 左侧：组图标 + 组名 + 箭头 + 类型 */}
-              <div className="flex items-center gap-3">
-                {/* 图标 */}
+              <div className="flex items-center gap-2 shrink-0">
                 <div
                   className="cursor-pointer"
                   onClick={() => handleToggleGroup(group)}
@@ -267,7 +264,6 @@ export default function ProxyList() {
                   <ProxyGroupIcon src={groupIcons[group]} />
                 </div>
 
-                {/* 组名 */}
                 <span
                   className="font-bold hover:text-white select-text cursor-pointer"
                   onClick={() => handleToggleGroup(group)}
@@ -278,7 +274,6 @@ export default function ProxyList() {
                   {group}
                 </span>
 
-                {/* 箭头 */}
                 <svg
                   onClick={() => handleToggleGroup(group)}
                   className={`w-5 h-5 ml-1 text-gray-300 hover:text-white hover:scale-130 transition-all duration-200 cursor-pointer ${
@@ -296,38 +291,68 @@ export default function ProxyList() {
                   />
                 </svg>
 
-                {/* 类型文字 */}
                 <span className="ml-2 text-[10px] text-gray-500 hidden sm:inline">
                   {groupTypes[group]}
                 </span>
               </div>
 
-              {/* 右侧：小方格 + 闪电按钮  */}
-              <div className="flex items-center gap-1">
-                {nodes.map((node) => {
-                  const nodeName = node?.name ?? "";
-                  const d =
-                    delays[nodeName] ?? node?.history?.at(-1)?.delay ?? "N/A";
-                  return (
-                    <div
-                      key={nodeName}
-                      className={`w-3 h-3 rounded-sm ${delayBlockColor(d)}`}
-                      title={`${nodeName}: ${
-                        Number.isFinite(Number(d)) ? `${d} ms` : "N/A"
-                      }`}
-                    />
-                  );
-                })}
+              {/* 右侧：小方块 + 闪电按钮  */}
+              <div className="flex items-center gap-2 ml-auto">
+                <div className="flex flex-1 flex-wrap items-center gap-1">
+                  {nodes.map((node) => {
+                    const nodeName = node?.name ?? "";
+                    const d =
+                      delays[nodeName] ?? node?.history?.at(-1)?.delay ?? "N/A";
+                    return (
+                      <div key={nodeName} className="relative group">
+                        {/* 小方块 */}
+                        <div
+                          className={`w-3 h-3 rounded-sm cursor-pointer transition 
+    ${delayBlockColor(d)} 
+    hover:scale-110 hover:ring-1 hover:ring-gray-400/50
+    ${current[group] === nodeName ? "scale-105 animate-pulse brightness-125 " : ""}`}
+                          onClick={() => handleSelect(group, nodeName)}
+                        >
+                          {/* ✅ 选中时叠加一个勾 */}
+                          {current[group] === nodeName && (
+                            <svg
+                              viewBox="0 0 16 16"
+                              className="absolute inset-0 w-3 h-3 pointer-events-none"
+                            >
+                              <path
+                                d="M4 8.5 L7 11 L12 5.5"
+                                className="stroke-green-800"
+                                strokeWidth="2"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                fill="none"
+                              />
+                            </svg>
+                          )}
+                        </div>
+
+                        {/* Tooltip */}
+                        <div
+                          className="absolute bottom-full mb-1 right-0 
+               hidden group-hover:block whitespace-nowrap
+               bg-[#212b2e] text-white text-[10px] px-2 py-1 rounded shadow-lg z-10"
+                        >
+                          {nodeName}:{" "}
+                          {Number.isFinite(Number(d)) ? `${d} ms` : "N/A"}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
 
                 {/* 闪电按钮 */}
                 <button
-                  className="ml-2 disabled:opacity-50"
+                  className="shrink-0 disabled:opacity-50"
                   onClick={() => {
                     if (abortRef.current) {
                       abortRef.current();
                       abortRef.current = null;
                     }
-
                     const { promise, abort } = testDelaysInBatch(
                       nodes,
                       5,
@@ -353,11 +378,11 @@ export default function ProxyList() {
               </div>
             </div>
 
-            {/* ===== 折叠容器（只包含节点列表） ===== */}
+            {/* ===== 折叠容器（节点卡片） ===== */}
             <div
-              className={`transition-all duration-300 ease-in-out overflow-hidden ${
+              className={`transition-all duration-300 ease-in-out ${
                 isOpen
-                  ? "max-h-[1000px] opacity-100 mt-2 scale-100 overflow-visible"
+                  ? "max-h-[9999px] opacity-100 mt-2 scale-100 overflow-visible "
                   : "max-h-0 opacity-0 mt-6 scale-95 overflow-hidden"
               }`}
             >
@@ -381,9 +406,9 @@ export default function ProxyList() {
                       <p className="font-normal text-xs truncate">{nodeName}</p>
                       {isActive && (
                         <ProxySpeed
-                          groupName={group}  
-                          proxyName={nodeName}  
-                          type={groupTypes[group]}  
+                          groupName={group}
+                          proxyName={nodeName}
+                          type={groupTypes[group]}
                           current={
                             groupTypes[group] === "URLTest"
                               ? current[group]
