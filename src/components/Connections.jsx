@@ -21,53 +21,31 @@ function formatSpeed(bytesPerSec) {
 
 export default function Connections() {
   const [conns, setConns] = useState([]);
-  const [uploadTotal, setUploadTotal] = useState(0);
-  const [downloadTotal, setDownloadTotal] = useState(0);
-
-  const [seenIds, setSeenIds] = useState(new Set());
-  const [lastSnapshot, setLastSnapshot] = useState({}); // { id: { upload, download, time, upSpeed, downSpeed } }
-
-  const [sortKey, setSortKey] = useState("latest"); // source | destination | host | proxy | upload | download | upSpeed | downSpeed | type | latest
-  const [sortDir, setSortDir] = useState("desc"); // asc | desc
+  const [lastSnapshot, setLastSnapshot] = useState({});
+  const [sortKey, setSortKey] = useState("latest");
+  const [sortDir, setSortDir] = useState("desc");
   const [filterText, setFilterText] = useState("");
 
-  // 建立一次订阅，计算速率，更新统计
+  // 订阅连接
   useEffect(() => {
     const ws = subscribeConnections((data) => {
       const list = data.connections || [];
       setConns(list);
-      setUploadTotal(data.uploadTotal || 0);
-      setDownloadTotal(data.downloadTotal || 0);
 
-      // 记录出现过的连接 ID，用于计算 Closed
-      setSeenIds((prev) => {
-        const next = new Set(prev);
-        list.forEach((c) => next.add(c.id));
-        return next;
-      });
-
-      // 速率计算：基于上一帧的 snapshot
+      const now = Date.now();
       setLastSnapshot((prev) => {
-        const now = Date.now();
         const next = {};
         list.forEach((c) => {
           const p = prev[c.id];
           const dt = p ? now - p.time : null;
-
-          if (p && dt != null && dt < 600) {
-            next[c.id] = { ...p }; // 保持上次速率，不更新
-          } else {
-            const seconds = Math.max(0.001, dt / 1000);
-            next[c.id] = {
-              upload: c.upload,
-              download: c.download,
-              time: now,
-              upSpeed: p ? Math.max(0, (c.upload - p.upload) / seconds) : 0,
-              downSpeed: p
-                ? Math.max(0, (c.download - p.download) / seconds)
-                : 0,
-            };
-          }
+          const seconds = dt ? Math.max(0.001, dt / 1000) : 1;
+          next[c.id] = {
+            upload: c.upload,
+            download: c.download,
+            time: now,
+            upSpeed: p ? Math.max(0, (c.upload - p.upload) / seconds) : 0,
+            downSpeed: p ? Math.max(0, (c.download - p.download) / seconds) : 0,
+          };
         });
         return next;
       });
@@ -80,10 +58,7 @@ export default function Connections() {
     };
   }, []);
 
-  const activeCount = conns.length;
-  const closedCount = Math.max(0, seenIds.size - activeCount);
-
-  // 简单过滤：在 host/type/src/dst/proxy chain 中做包含匹配
+  // 过滤
   const filteredConns = useMemo(() => {
     const s = (filterText || "").trim().toLowerCase();
     if (!s) return conns;
@@ -101,12 +76,11 @@ export default function Connections() {
     });
   }, [conns, filterText]);
 
-  // 排序（包含速率列），默认 latest（start 时间）降序
+  // 排序
   const sortedConns = useMemo(() => {
     const list = [...filteredConns];
     list.sort((a, b) => {
       let valA, valB;
-
       switch (sortKey) {
         case "source":
           valA = `${a.metadata.sourceIP}:${a.metadata.sourcePort}`;
@@ -116,13 +90,13 @@ export default function Connections() {
           valA = `${a.metadata.destinationIP}:${a.metadata.destinationPort}`;
           valB = `${b.metadata.destinationIP}:${b.metadata.destinationPort}`;
           break;
-        case "host":
-          valA = a.metadata.host || "";
-          valB = b.metadata.host || "";
-          break;
         case "proxy":
           valA = (a.chains || []).join(",");
           valB = (b.chains || []).join(",");
+          break;
+        case "host":
+          valA = a.metadata.host || "";
+          valB = b.metadata.host || "";
           break;
         case "upload":
           valA = a.upload || 0;
@@ -140,18 +114,18 @@ export default function Connections() {
           valA = lastSnapshot[a.id]?.downSpeed || 0;
           valB = lastSnapshot[b.id]?.downSpeed || 0;
           break;
+        case "network":
+          valA = (a.metadata.network || "").toUpperCase();
+          valB = (b.metadata.network || "").toUpperCase();
+          break;
         case "type":
           valA = a.metadata.type || "";
           valB = b.metadata.type || "";
           break;
-        case "latest":
         default:
           valA = new Date(a.start).getTime() || 0;
           valB = new Date(b.start).getTime() || 0;
-          break;
       }
-
-      // 字符串与数字统一比较
       if (typeof valA === "string" && typeof valB === "string") {
         const res = valA.localeCompare(valB);
         return sortDir === "asc" ? res : -res;
@@ -179,153 +153,55 @@ export default function Connections() {
   };
 
   return (
-    <div className="p-1 text-white">
-      {/* 标题与操作 */}
+    <div className="p-2 text-white">
+      {/* 标题 + 关闭按钮 */}
       <div className="flex justify-between items-center mb-3">
         <h1 className="text-xl font-bold">Connections</h1>
         <button
           onClick={handleCloseAll}
-          className="
-            px-3 py-1 rounded text-sm text-white
-            bg-gradient-to-r from-red-600/70 to-pink-500/70
-            hover:from-red-600/80 hover:to-pink-400/60
-            transition-colors duration-200"
+          className="px-3 py-1 rounded text-sm text-white bg-gradient-to-r from-red-600/70 to-pink-500/70 hover:from-red-600/80 hover:to-pink-400/60 transition-colors duration-200"
         >
           Close All
         </button>
       </div>
 
-      {/* 统计 + 搜索框 */}
-      <div className="mb-3 flex flex-wrap items-center gap-4">
-        <div className="text-xs text-gray-300 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-4 mb-2">
-          {/* 连接状态 */}
-          <div className="flex gap-2">
-            <span className="flex items-center gap-1">
-              <span className="w-3 h-3 rounded-full bg-green-500"></span>
-              Active: {activeCount}
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="w-3 h-3 rounded-full bg-gray-500"></span>
-              Closed: {closedCount}
-            </span>
-          </div>
+      {/* 搜索框 */}
+      <input
+        type="text"
+        value={filterText}
+        onChange={(e) => setFilterText(e.target.value)}
+        placeholder="Filter..."
+        className="w-full mb-2 px-3 py-2 rounded-lg bg-gray-800/80 border border-gray-700 text-xs text-gray-500 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
+      />
 
-          {/* 流量统计 */}
-          <div className="flex gap-3 text-[11px] sm:text-xs text-gray-400">
-            <span className="text-purple-400 font-normal">
-              ↑ {formatBytes(uploadTotal)}
-            </span>
-            <span className="text-green-400 font-normal">
-              ↓ {formatBytes(downloadTotal)}
-            </span>
-          </div>
-        </div>
-
-        <input
-          type="text"
-          value={filterText}
-          onChange={(e) => setFilterText(e.target.value)}
-          placeholder="Filter..."
-          className="flex-1 min-w-[220px] px-3 py-2 rounded-lg bg-gray-800/80 border border-gray-700 text-xs text-gray-500 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
-        />
+      {/* 排序按钮 */}
+      <div className="flex flex-wrap gap-2 mb-2 text-[10px]">
+        {[
+          "Source",
+          "Destination",
+          "Host",
+          "Proxy",
+          "Upload",
+          "Download",
+          "UpSpeed",
+          "DownSpeed",
+          "Network",
+          "Type",
+        ].map((key) => (
+          <button
+            key={key}
+            onClick={() => handleSort(key)}
+            className={`px-2 py-1 rounded bg-gray-700/50 hover:bg-gray-600/60 ${
+              sortKey === key ? "bg-blue-600 text-white" : ""
+            }`}
+          >
+            {key} {sortKey === key ? (sortDir === "asc" ? "↑" : "↓") : ""}
+          </button>
+        ))}
       </div>
 
-      {/* 表格 */}
-      {/* 桌面表格布局 */}
-      <div className="hidden md:block overflow-x-auto whitespace-nowrap overflow-hidden">
-        <table className="w-full text-xs">
-          <thead className="bg-gradient-to-r from-blue-900/80 to-blue-800/40 text-left text-gray-200">
-            <tr>
-              <th
-                className="px-2 py-1 cursor-pointer hover:text-accent"
-                onClick={() => handleSort("source")}
-              >
-                Source
-              </th>
-              <th
-                className="px-2 py-1 cursor-pointer hover:text-accent"
-                onClick={() => handleSort("destination")}
-              >
-                Destination
-              </th>
-              <th
-                className="px-2 py-1 cursor-pointer hover:text-accent"
-                onClick={() => handleSort("proxy")}
-              >
-                Proxy Chain
-              </th>
-              <th
-                className="px-2 py-1 cursor-pointer hover:text-accent"
-                onClick={() => handleSort("upload")}
-              >
-                ↑ Upload
-              </th>
-              <th
-                className="px-2 py-1 cursor-pointer hover:text-accent"
-                onClick={() => handleSort("download")}
-              >
-                ↓ Download
-              </th>
-              <th
-                className="px-2 py-1 cursor-pointer hover:text-accent"
-                onClick={() => handleSort("upSpeed")}
-              >
-                ↑ Speed
-              </th>
-              <th
-                className="px-2 py-1 cursor-pointer hover:text-accent"
-                onClick={() => handleSort("downSpeed")}
-              >
-                ↓ Speed
-              </th>
-              <th
-                className="px-2 py-1 cursor-pointer hover:text-accent"
-                onClick={() => handleSort("type")}
-              >
-                Type
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedConns.map((c) => {
-              const snap = lastSnapshot[c.id] || { upSpeed: 0, downSpeed: 0 };
-              return (
-                <tr
-                  key={c.id}
-                  className="border-t text-gray-400 border-gray-700 hover:bg-blue-900/30"
-                >
-                  <td className="px-2 py-1">
-                    {c.metadata.sourceIP}:{c.metadata.sourcePort}
-                  </td>
-                  <td className="px-2 py-1">
-                    {c.metadata.host
-                      ? `${c.metadata.host}${c.metadata.destinationPort ? `:${c.metadata.destinationPort}` : ""} `
-                      : ""}
-                    {c.metadata.destinationIP
-                      ? `${c.metadata.destinationIP}${c.metadata.destinationPort ? `:${c.metadata.destinationPort}` : ""}`
-                      : ""}
-                  </td>
-                  <td className="px-2 py-1">
-                    {(c.chains || []).slice().reverse().join(" → ")}
-                  </td>
-                  <td className="px-2 py-1">{formatBytes(c.upload)}</td>
-                  <td className="px-2 py-1">{formatBytes(c.download)}</td>
-                  <td className="px-2 py-1 text-purple-400">
-                    {formatSpeed(snap.upSpeed)}
-                  </td>
-                  <td className="px-2 py-1 text-green-400">
-                    {formatSpeed(snap.downSpeed)}
-                  </td>
-                  <td className="px-2 py-1">{c.metadata.type}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-
-      {/* 移动卡片布局 */}
-      <div className="block md:hidden space-y-1">
+      {/* 卡片布局 */}
+      <div className="space-y-1">
         {sortedConns.map((c) => {
           const snap = lastSnapshot[c.id] || { upSpeed: 0, downSpeed: 0 };
           const source = `${c.metadata.sourceIP}:${c.metadata.sourcePort}`;
@@ -334,32 +210,52 @@ export default function Connections() {
             : `${c.metadata.destinationIP}${c.metadata.destinationPort ? `:${c.metadata.destinationPort}` : ""}`;
           const proxyChain = (c.chains || []).slice().reverse().join(" → ");
           const type = c.metadata.type || "—";
+          const network = (c.metadata.network || "—").toUpperCase();
+
+          const timeStr = c.start
+            ? new Date(c.start).toLocaleTimeString()
+            : "—";
 
           return (
             <div
               key={c.id}
-              className="bg-gray-800/60 rounded-lg p-2 text-[10px] text-gray-300 shadow-md relative"
+              className="bg-[#212d30]/60 rounded-lg p-2 text-[10px] text-gray-300 shadow-md relative flex"
             >
-              {/* 右上角：速率 */}
-              <div className="absolute top-2 right-3 text-right  text-[10px] leading-tight">
-                <div className="text-purple-400">
-                  ↑ {formatSpeed(snap.upSpeed)}
-                </div>
-                <div className="text-green-400">
-                  ↓ {formatSpeed(snap.downSpeed)}
-                </div>
-              </div>
-
-              {/* 主体信息：左对齐内容 */}
-              <div className="space-y-1 pr-20">
+              {/* 主体信息 */}
+              <div className="flex-1 ml-2 space-y-1 pr-20">
                 <div className="break-all">{destination}</div>
                 <div className="break-all">{source}</div>
                 <div className="break-all">{proxyChain}</div>
               </div>
 
-              {/* 右下角：类型 */}
-              <div className="absolute bottom-2 right-3 text-[10px] text-gray-400">
-                {type}
+              {/* 右侧速率、流量、type、时间 */}
+              <div className="absolute right-2 top-1/2 transform -translate-y-1/2 flex flex-col items-end text-[9px]">
+                <div className="flex gap-1">
+                  <div className="text-purple-400">
+                    ↑{formatSpeed(snap.upSpeed)}
+                  </div>
+                  <div className="text-green-400">
+                    ↓{formatSpeed(snap.downSpeed)}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  {/* 上传/下载靠中偏左 */}
+                  <div className="flex gap-1 justify-end ">
+                    <div className="text-purple-500">
+                      {formatBytes(c.upload)}
+                    </div>
+                    <div className="text-green-500">
+                      {formatBytes(c.download)}
+                    </div>
+                  </div>
+
+                  {/* network 显示在右边 */}
+                </div>
+
+                <div className="text-gray-400 mt-1">{timeStr}</div>
+                <div className="text-gray-400 mt-1">
+                  {type} | {network}{" "}
+                </div>
               </div>
             </div>
           );
