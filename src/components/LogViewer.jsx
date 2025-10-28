@@ -55,8 +55,6 @@ export default function LogViewer() {
     );
   }, [logs, filterText]);
 
-  const lineClass = "text-gray-300/60";
-
   return (
     <div className="flex flex-col h-screen p-2 text-white">
       {/* 标题与操作 */}
@@ -85,28 +83,12 @@ export default function LogViewer() {
         />
       </div>
 
-      {/* 日志内容 */}
+      {/* 日志内容：统一卡片样式 */}
       <div
         ref={containerRef}
         className="flex-1 overflow-y-auto font-mono text-xs space-y-2"
       >
-        {/* 💻 桌面端：单行日志 */}
-        <div className="hidden md:block">
-          {filteredLogs.map((log, idx) => (
-            <div
-              key={idx}
-              className={`py-2 border-b border-gray-700 ${lineClass}`}
-            >
-              [{log.time}] [{log.type.toUpperCase()}] {log.payload}
-            </div>
-          ))}
-          {filteredLogs.length === 0 && (
-            <div className="text-center text-gray-400 py-4">No logs</div>
-          )}
-        </div>
-
-        {/* 📱 移动端：卡片样式 */}
-        <div className="block md:hidden space-y-1 text-[10px]">
+        <div className="space-y-1 text-[11px]">
           {filteredLogs.map((log, idx) => {
             const type = log.type.toUpperCase();
             const typeColor =
@@ -115,20 +97,20 @@ export default function LogViewer() {
                 : type === "WARN"
                   ? "text-yellow-400"
                   : type === "INFO"
-                    ? "text-green-400"
+                    ? "text-green-500"
                     : "text-cyan-400";
 
             return (
               <div
                 key={idx}
-                className="bg-gray-800/60 rounded-md px-3 py-2 border border-gray-700 shadow-sm"
+                className="bg-[#212d30]/60 rounded-md px-3 py-2 border border-gray-700 shadow-sm"
               >
                 <div className="flex justify-between items-center mb-1">
-                  <span className="text-gray-400 text-[10px]">
-                    [{log.time}]
-                  </span>
                   <span className={`text-[10px] font-semibold ${typeColor}`}>
                     [{type}]
+                  </span>
+                  <span className="text-gray-400 text-[10px]">
+                    [{log.time}]
                   </span>
                 </div>
                 <div className="break-words text-gray-300 leading-snug">
