@@ -271,18 +271,32 @@ export default function Sidebar() {
       <div className="hidden md:flex flex-col items-start absolute mb-3 bottom-5 px-3 py-2 pl-2 text-[10px] text-white/50">
         <div className="flex items-center gap-1 mt-1">
           <VersionIcon className="w-3 h-3 text-white/70" />
-          <span>{system.version || "..."}</span>
+          <a
+            href="https://github.com/SagerNet/sing-box"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-white/40 hover:text-white/70 transition-colors duration-200 decoration-dotted"
+          >
+            {system.version || "..."}
+          </a>
         </div>
         <button
           onClick={handleLogout}
           className="text-xs mt-5 ml-6 rounded bg-white-600/80 hover:bg-red-700 transition"
         >
-          <PowerIcon className="w-5 h-5 text-white" />
+          <PowerIcon className="w-4 h-4 text-white" />
         </button>
       </div>
-      {/*  底部 Credit */}
+      {/* 底部 Credit */}
       <div className="hidden md:flex absolute left-5 bottom-1 w-full text-[8px] text-gray-200/30 hover:text-white/70 transition-colors duration-300">
-        ♥ Design By Chen
+        <a
+          href="https://github.com/xh116/sui"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-1 hover:text-white/80"
+        >
+          ♥ Design By Chen
+        </a>
       </div>
     </aside>
   );
