@@ -166,20 +166,20 @@ export default function Connections() {
           valB = b.metadata.host || "";
           break;
         case "upload":
-          valA = a.upload || 0;
-          valB = b.upload || 0;
+          valA = Number(a.upload) || 0;
+          valB = Number(b.upload) || 0;
           break;
         case "download":
-          valA = a.download || 0;
-          valB = b.download || 0;
+          valA = Number(a.download) || 0;
+          valB = Number(b.download) || 0;
           break;
         case "upSpeed":
-          valA = lastSnapshot[a.id]?.upSpeed || 0;
-          valB = lastSnapshot[b.id]?.upSpeed || 0;
+          valA = Number(lastSnapshot[a.id]?.upSpeed) || 0;
+          valB = Number(lastSnapshot[b.id]?.upSpeed) || 0;
           break;
         case "downSpeed":
-          valA = lastSnapshot[a.id]?.downSpeed || 0;
-          valB = lastSnapshot[b.id]?.downSpeed || 0;
+          valA = Number(lastSnapshot[a.id]?.downSpeed) || 0;
+          valB = Number(lastSnapshot[b.id]?.downSpeed) || 0;
           break;
         case "network":
           valA = (a.metadata.network || "").toUpperCase();
@@ -212,6 +212,20 @@ export default function Connections() {
       setSortDir("desc");
     }
   };
+
+  const sortFields = [
+    { label: "Source", key: "source" },
+    { label: "Destination", key: "destination" },
+    { label: "Host", key: "host" },
+    { label: "Proxy", key: "proxy" },
+    { label: "Upload", key: "upload" },
+    { label: "Download", key: "download" },
+    { label: "UpSpeed", key: "upSpeed" },
+    { label: "DownSpeed", key: "downSpeed" },
+    { label: "Network", key: "network" },
+    { label: "Duration", key: "start" },
+    { label: "Type", key: "type" },
+  ];
 
   const handleCloseAll = async () => {
     try {
@@ -312,19 +326,7 @@ export default function Connections() {
 
       {/* 排序按钮 */}
       <div className="flex flex-wrap gap-1 mb-2 text-[10px]">
-        {[
-          "Source",
-          "Destination",
-          "Host",
-          "Proxy",
-          "Upload",
-          "Download",
-          "UpSpeed",
-          "DownSpeed",
-          "Network",
-          "Duration",
-          "Type",
-        ].map((key) => (
+        {sortFields.map(({ label, key }) => (
           <button
             key={key}
             onClick={() => handleSort(key)}
@@ -332,7 +334,7 @@ export default function Connections() {
               sortKey === key ? "bg-blue-600 text-white" : ""
             }`}
           >
-            {key} {sortKey === key ? (sortDir === "asc" ? "↑" : "↓") : ""}
+            {label} {sortKey === key ? (sortDir === "asc" ? "↑" : "↓") : ""}
           </button>
         ))}
       </div>
