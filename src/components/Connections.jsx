@@ -47,7 +47,8 @@ export default function Connections() {
 
   // 订阅连接
   useEffect(() => {
-    const ws = subscribeConnections((data) => {
+    // subscribeConnections 返回取消订阅函数
+    const unsubscribe = subscribeConnections((data) => {
       const list = data.connections || [];
       setConns(list);
       setUploadTotal(data.uploadTotal || 0);
@@ -59,7 +60,6 @@ export default function Connections() {
         return Array.from(map.values());
       });
 
-      // 速率计算：基于上一帧的 snapshot
       setLastSnapshot((prev) => {
         const now = Date.now();
         const next = {};
@@ -68,7 +68,7 @@ export default function Connections() {
           const dt = p ? now - p.time : null;
 
           if (p && dt != null && dt < 600) {
-            next[c.id] = { ...p }; // 保持上次速率，不更新
+            next[c.id] = { ...p }; // 保持上次速率
           } else {
             const seconds = Math.max(0.001, dt / 1000);
             next[c.id] = {
@@ -86,11 +86,7 @@ export default function Connections() {
       });
     });
 
-    return () => {
-      try {
-        ws && ws.close && ws.close();
-      } catch {}
-    };
+    return () => unsubscribe();
   }, []);
 
   // 当前总速率
