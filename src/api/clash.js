@@ -1,13 +1,13 @@
 const getBaseUrl = () =>
   localStorage.getItem("apiBaseUrl") || "http://127.0.0.1:9090";
-const SECRET = "";
+const getSecret = () => localStorage.getItem("apiSecret") || "";
 
 // 通用请求封装
 async function request(path, options = {}) {
   const res = await fetch(`${getBaseUrl()}${path}`, {
     headers: {
       "Content-Type": "application/json",
-      ...(SECRET ? { Authorization: `Bearer ${SECRET}` } : {}),
+      ...(getSecret() ? { Authorization: `Bearer ${getSecret()}` } : {}),
       ...options.headers,
     },
     ...options,
@@ -20,12 +20,40 @@ async function request(path, options = {}) {
   }
 }
 
+async function requestWithRetry(
+  path,
+  options = {},
+  maxRetries = 5,
+  delay = 2000,
+) {
+  let attempt = 0;
+
+  while (attempt <= maxRetries) {
+    try {
+      const res = await request(path, options);
+      // 成功 → 重置计数（这里直接 return 就相当于重置）
+      return res;
+    } catch (err) {
+      attempt++;
+      console.warn(`[HTTP] ${path} failed ${attempt}/${maxRetries}`, err);
+
+      if (attempt > maxRetries) {
+        throw new Error(`[HTTP] ${path} exceeded max retries ${maxRetries}`);
+      }
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+}
+
 // 基础 API
-export const getProxies = () => request("/proxies");
-export const getConfigs = () => request("/configs");
-export const getTraffic = () => request("/traffic");
+export const getProxies = () => requestWithRetry("/proxies");
+export const getConfigs = () => requestWithRetry("/configs");
+export const getRules = () => requestWithRetry("/rules");
+
 export const getConnections = () => request("/connections");
-export const getRules = () => request("/rules");
+export const getLogs = () => request("/logs");
+export const getTraffic = () => request("/traffic");
+
 export const getVersion = () => request("/version");
 
 // 切换代理
@@ -56,7 +84,7 @@ export const testDelay = async (
     )}&timeout=${timeout}`,
     {
       headers: {
-        ...(SECRET ? { Authorization: `Bearer ${SECRET}` } : {}),
+        ...(getSecret() ? { Authorization: `Bearer ${getSecret()}` } : {}),
       },
       signal,
     },
@@ -118,19 +146,29 @@ export function testDelaysInBatch(
   return { promise, abort: () => controller.abort() };
 }
 
-// WebSocket 地址构造
+// WebSocket 地址构造（secret 可选）
 const wsUrl = (path) => {
   const base = getBaseUrl();
   const url = new URL(path, base);
+
+  // 协议转换
   url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+
+  const secret = getSecret();
+  // 只有 secret 非空时才加参数
+  if (secret && secret.trim() !== "") {
+    url.searchParams.set("secret", secret);
+  }
+
   return url.toString();
 };
 
 // ✅ 通用订阅封装（共享连接 + 多监听）
-function createWebSocketSubscription(path) {
+function createWebSocketSubscription(path, maxRetries = 5) {
   let ws = null;
   let state = 0;
   let frozen = false;
+  let retryCount = 0;
   const listeners = new Set();
 
   const broadcast = (raw) => {
@@ -138,17 +176,24 @@ function createWebSocketSubscription(path) {
       const data = JSON.parse(raw);
       listeners.forEach((fn) => fn(data));
     } catch (e) {
-      console.error(`[WS] ${path} fail to connect`, e);
+      console.error(`[WS] ${path} failed to parse`, e);
     }
   };
 
   const connect = () => {
-    if (ws || state === 1) return;
+    if (ws || state === 1 || retryCount >= maxRetries) {
+      if (retryCount >= maxRetries) {
+        console.error(`[WS] ${path} failed after ${maxRetries} retries`);
+      }
+      return;
+    }
+
     state = 1;
     ws = new WebSocket(wsUrl(path));
 
     ws.onopen = () => {
       console.log(`[WS] ${path} connected`);
+      retryCount = 0; // reset on success
     };
 
     ws.onmessage = (event) => broadcast(event.data);
@@ -165,7 +210,8 @@ function createWebSocketSubscription(path) {
       state = 3;
       ws = null;
       if (!frozen) {
-        console.warn(`[WS] ${path} reconnected`);
+        retryCount++;
+        console.warn(`[WS] ${path} retry ${retryCount}/${maxRetries}`);
         setTimeout(connect, 2000);
       }
     };
