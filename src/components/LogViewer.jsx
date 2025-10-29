@@ -5,7 +5,10 @@ import { subscribeLogs } from "../api/clash";
 function parseLogEntry(raw) {
   const payload =
     typeof raw?.payload === "string" ? raw.payload : String(raw?.payload ?? "");
-  const m = payload.match(/^\[([^\]]+)\]\s*\[([A-Z]+)\]\s*(.*)$/);
+
+  const m = payload.match(
+    /^\[([0-9]{2}-[0-9]{2}-[0-9]{2}\s[0-9]{2}:[0-9]{2}:[0-9]{2})\]\s*\[([A-Z]+)\]\s*(.*)$/,
+  );
 
   const formatDate = (date) => {
     const yy = String(date.getFullYear()).slice(-2);
@@ -19,15 +22,20 @@ function parseLogEntry(raw) {
 
   if (m) {
     return {
-      time: formatDate(new Date()),
+      logTime: m[1], // 日志自带时间
       type: m[2].toLowerCase(),
       payload: m[3],
+      localTime: formatDate(new Date()), // 本地时间
     };
   }
+
+  const typeMatch = payload.match(/\[([A-Z]+)\]/);
+  const cleanPayload = payload.replace(/\[[A-Z]+\]/, "").trim();
+
   return {
-    time: formatDate(new Date()),
-    type: raw?.type ?? "info",
-    payload,
+    type: typeMatch ? typeMatch[1].toLowerCase() : (raw?.type ?? "info"),
+    payload: cleanPayload,
+    localTime: formatDate(new Date()),
   };
 }
 
@@ -79,7 +87,7 @@ export default function LogViewer() {
           value={filterText}
           onChange={(e) => setFilterText(e.target.value)}
           placeholder="Filter..."
-          className="flex-1 w-full px-3 py-2 rounded-lg bg-gray-800/80 border border-gray-700 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-accent focus:border-accent"
+          className="flex-1 w-full px-3 py-2 rounded-lg bg-gray-800/80 border border-gray-700 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent"
         />
       </div>
 
@@ -93,12 +101,12 @@ export default function LogViewer() {
             const type = log.type.toUpperCase();
             const typeColor =
               type === "ERROR"
-                ? "text-red-400"
+                ? "bg-red-800 px-1 rounded"
                 : type === "WARN"
-                  ? "text-yellow-400"
+                  ? "bg-orange-600 px-1 rounded"
                   : type === "INFO"
-                    ? "text-green-500"
-                    : "text-cyan-400";
+                    ? "bg-green-600 px-1 rounded"
+                    : "bg-cyan-600 px-1 rounded";
 
             return (
               <div
@@ -106,13 +114,23 @@ export default function LogViewer() {
                 className="bg-[#212d30]/60 rounded-md px-3 py-2 border border-gray-700 shadow-sm"
               >
                 <div className="flex justify-between items-center mb-1">
-                  <span className={`text-[10px] font-semibold ${typeColor}`}>
-                    [{type}]
-                  </span>
-                  <span className="text-gray-400 text-[10px]">
-                    [{log.time}]
-                  </span>
+                  {/* 左侧：类型 + 时间 */}
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[10px] font-normal ${typeColor}`}>
+                      [{type}]
+                    </span>
+                    {log.logTime && (
+                      <span className="text-gray-400 text-[10px]">
+                        [{log.logTime}]
+                      </span>
+                    )}
+                    <span className="text-gray-400 text-[10px]">
+                      [{log.localTime}]
+                    </span>
+                  </div>
                 </div>
+
+                {/* 日志内容 */}
                 <div className="break-words text-gray-300 leading-snug">
                   {log.payload}
                 </div>
