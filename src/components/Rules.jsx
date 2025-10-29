@@ -1,15 +1,56 @@
 import { useEffect, useState } from "react";
-import { getRules } from "../api/clash";
+import { getRules, getProxies } from "../api/clash";
 
 export default function Rules() {
   const [rules, setRules] = useState([]);
+  const [proxies, setProxies] = useState({});
+
+  const fetchProxies = async () => {
+    const res = await getProxies();
+    setProxies(res.proxies || {});
+  };
+
+  const fetchRules = async () => {
+    const res = await getRules();
+    setRules(res.rules || []);
+  };
 
   useEffect(() => {
-    (async () => {
-      const res = await getRules();
-      setRules(res.rules || []);
-    })();
+    const fetchAll = async () => {
+      await fetchProxies();
+      await fetchRules();
+    };
+
+    fetchAll();
+
+    const timer = setInterval(fetchAll, 5000);
+    return () => clearInterval(timer);
   }, []);
+
+  const getCurrentProxyName = (proxyString, proxies) => {
+    // 非 route(...)，直接返回
+    if (!proxyString.startsWith("route(") || !proxyString.endsWith(")")) {
+      return proxyString;
+    }
+    const groupName = proxyString.slice(6, -1);
+
+    const group = proxies[groupName];
+    if (!group) return groupName;
+    if (group.now) {
+      const now = group.now;
+      const nowGroup = proxies[now];
+
+      // 如果 now 也是一个策略组（Selector/URLTest/Fallback）
+      if (
+        nowGroup &&
+        ["Selector", "URLTest", "Fallback"].includes(nowGroup.type)
+      ) {
+        return `${now} → ${nowGroup.now || now}`;
+      }
+      return now;
+    }
+    return groupName;
+  };
 
   if (rules.length === 0) {
     return (
@@ -29,26 +70,25 @@ export default function Rules() {
           key={i}
           className="bg-[#212d30]/60 rounded-md px-2 py-2 border border-gray-700 shadow-sm flex items-center"
         >
-          {/* 左侧编号 */}
-          <div className="w-10 flex justify-center items-center text-yellow-300 font-semibold text-sm">
+          <div className="w-8 flex justify-center items-center text-yellow-400 text-[11px]">
             #{i}
           </div>
 
-          {/* 中间内容 */}
-          <div className="flex-1 ml-2 space-y-1 text-xs text-gray-300">
-            <div className="flex gap-2">
-              <span className="text-gray-400 font-normal">Payload:</span>
-              <span className="break-words">{r.payload}</span>
-            </div>
-            <div className="flex gap-2">
-              <span className="text-gray-400 font-normal">Proxy:</span>
-              <span>{r.proxy}</span>
-            </div>
-          </div>
+          <div className="flex-1 ml-2 flex items-center justify-between text-[11px] text-gray-300">
+            <span className="break-words flex-1 pr-2">{r.payload}</span>
+            <div className="flex flex-col items-end gap-1 text-[9px]">
+              <span className="bg-pink-500/50 px-1 rounded text-[9px] text-gray-300">
+                {r.proxy}
+              </span>
 
-          {/* 右侧 Type */}
-          <div className="w-20 flex text-cyan-500 justify-center items-center text-xs font-normal">
-            {r.type}
+              {/* 当前实际使用 proxy */}
+              {r.proxy.startsWith("route(") &&
+                getCurrentProxyName(r.proxy, proxies) && (
+                  <span className="bg-green-500/50 px-1 rounded text-[8px] text-gray-300">
+                    {getCurrentProxyName(r.proxy, proxies)}
+                  </span>
+                )}
+            </div>
           </div>
         </div>
       ))}
