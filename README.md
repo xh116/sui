@@ -43,7 +43,7 @@ You can also directly add this line in Sing-box config file.
 
 | Interface Preview | Rule Group Icons | Mobile View | 
 |-------------------|------------------|-------------|
-| ![Preview](https://github.com/user-attachments/assets/7aa70e51-ede4-4887-9810-a1778c4e06d9) | ![Icons](https://github.com/user-attachments/assets/97754d89-2955-43a4-9105-0624d8c8ee01) | ![Mobile](https://github.com/user-attachments/assets/006bdfa5-9304-4f9d-b7e5-4884b68443de) | 
+| ![Preview](https://github.com/user-attachments/assets/7aa70e51-ede4-4887-9810-a1778c4e06d9) | ![Icons](https://github.com/user-attachments/assets/f43a0e42-fa9b-4346-9d5d-bd2f285a0312) | ![Mobile](https://github.com/user-attachments/assets/96a4040e-589b-461e-89e1-e433da8d4f55) | 
 
 ---
 
