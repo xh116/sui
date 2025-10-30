@@ -29,6 +29,13 @@
   border-color: var(--color-accent);
 }
 
+/* 注册字体 */
+
+@font-face {
+  font-family: "TwemojiFlags";
+  src: url("./fonts/TwemojiCountryFlags.woff2") format("woff2");
+  font-display: swap;
+}
 /* 全局统一 Twemoji Flag字体 没有则fallback到系统 */
 body, * {
   font-family: "TwemojiFlags", sans-serif;
