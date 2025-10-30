@@ -22,9 +22,6 @@ export default function Rules() {
     };
 
     fetchAll();
-
-    const timer = setInterval(fetchAll, 5000);
-    return () => clearInterval(timer);
   }, []);
 
   const getCurrentProxyName = (proxyString, proxies) => {
