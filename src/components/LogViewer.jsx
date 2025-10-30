@@ -49,7 +49,7 @@ export default function LogViewer() {
     const unsubscribe = subscribeLogs((log) => {
       if (paused) return;
       const parsed = parseLogEntry(log);
-      setLogs((prev) => [parsed, ...prev].slice(0, 5000));
+      setLogs((prev) => [parsed, ...prev].slice(0, 1000));
     });
 
     return () => unsubscribe();
