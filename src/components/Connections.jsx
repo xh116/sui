@@ -78,7 +78,10 @@ export default function Connections() {
       const ids = new Set(list.map((c) => c.id));
       const closed = prev.filter((p) => !ids.has(p.id));
       if (closed.length) {
-        setClosedConns((old) => [...closed, ...old].slice(0, 50));
+        setClosedConns((old) => {
+          const merged = [...closed, ...old];
+          return merged.slice(0, 99);
+        });
       }
       prevConnsRef.current = list;
     });
@@ -235,22 +238,22 @@ export default function Connections() {
             }`}
           >
             <span className="w-3 h-3 rounded-full bg-gray-500"></span>
-            Closed: {closedConns.length}
+            Closed: {closedConns.length > 99 ? "99+" : closedConns.length}
           </button>
         </div>
 
         {/* 流量统计 */}
         <div
           className="
-      flex justify-between items-center
-      w-full px-4 py-2
-      rounded-lg
-      bg-gradient-to-r from-gray-800/80 hover:to-gray-600/60
-      hover:from-gray-800/80 hover:to-gray-600/60
-      transition-colors duration-300
-      shadow-md border border-gray-700
-      text-xs text-gray-200
-    "
+              flex justify-between items-center
+              w-full px-4 py-2
+              rounded-lg
+              bg-gradient-to-r from-gray-800/80 hover:to-gray-600/60
+              hover:from-gray-800/80 hover:to-gray-600/60
+              transition-colors duration-300
+              shadow-md border border-gray-700
+              text-xs text-gray-200
+            "
         >
           <div className="flex items-center gap-2 text-purple-400 font-normal">
             <span>
