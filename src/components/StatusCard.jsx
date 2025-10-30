@@ -58,35 +58,35 @@ export default function StatusCard() {
 
   return (
     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-      <div className="bg-gradient-to-b from-gray-500/20 to-gray-500/5 border border-white/10 rounded p-3 flex flex-col items-center">
+      <div className="bg-gradient-to-b from-gray-600/40 to-gray-500/10 border border-white/10 rounded p-3 flex flex-col items-center">
         <div className="text-xs text-gray-400">Connections</div>
         <div className="font-bold text-gray-200">{connections}</div>
       </div>
-      <div className="bg-gradient-to-b from-purple-500/20 to-purple-500/5 border border-white/10 rounded p-3 flex flex-col items-center">
+      <div className="bg-gradient-to-b from-purple-600/40 to-purple-500/10 border border-white/10 rounded p-3 flex flex-col items-center">
         <div className="text-xs text-gray-400">Upload</div>
         <div className="font-bold text-purple-400">
           {formatBytes(speed.up)}/s
         </div>
       </div>
-      <div className="bg-gradient-to-b from-green-500/20 to-green-500/5 border border-white/10 rounded p-3 flex flex-col items-center">
+      <div className="bg-gradient-to-b from-green-600/40 to-green-500/10 border border-white/10 rounded p-3 flex flex-col items-center">
         <div className="text-xs text-gray-400">Download</div>
         <div className="font-bold text-green-400">
           {formatBytes(speed.down)}/s
         </div>
       </div>
-      <div className="bg-gradient-to-b from-purple-500/20 to-purple-500/5 border border-white/10 rounded p-3 flex flex-col items-center">
+      <div className="bg-gradient-to-b from-purple-600/40 to-purple-500/10 border border-white/10 rounded p-3 flex flex-col items-center">
         <div className="text-xs text-gray-400">Total Upload</div>
         <div className="font-bold text-purple-300">
           {formatBytes(traffic.totalUp)}
         </div>
       </div>
-      <div className="bg-gradient-to-b from-green-500/20 to-green-500/5 border border-white/10 rounded p-3 flex flex-col items-center">
+      <div className="bg-gradient-to-b from-green-600/40 to-green-500/10 border border-white/10 rounded p-3 flex flex-col items-center">
         <div className="text-xs text-gray-400">Total Download</div>
         <div className="font-bold text-green-300">
           {formatBytes(traffic.totalDown)}
         </div>
       </div>
-      <div className="bg-gradient-to-b from-blue-500/20 to-blue-500/5 border border-white/10 rounded p-3 flex flex-col items-center">
+      <div className="bg-gradient-to-b from-blue-600/40 to-blue-500/10 border border-white/10 rounded p-3 flex flex-col items-center">
         <div className="text-xs text-gray-400">Memory</div>
         <div className="font-bold text-blue-400">{formatBytes(memory)}</div>
       </div>
