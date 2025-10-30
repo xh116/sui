@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { subscribeConnections, closeAllConnections } from "../api/clash";
 
-// 累计字节数显示（B / KB / MB / GB）
+// ===== 辅助函数 =====
 function formatBytes(bytes) {
   if (!bytes || bytes < 0) return "0 B";
   if (bytes < 1024) return `${bytes} B`;
@@ -10,7 +10,6 @@ function formatBytes(bytes) {
   return `${(bytes / 1024 ** 3).toFixed(1)} GB`;
 }
 
-// 速率显示（B/s / KB/s / MB/s / GB/s）
 function formatSpeed(bytesPerSec) {
   const n = bytesPerSec || 0;
   if (n < 1024) return `${Math.round(n)} B/s`;
@@ -24,7 +23,6 @@ function getDuration(start) {
   const startTime = new Date(start).getTime();
   const diff = Date.now() - startTime;
   const seconds = Math.floor(diff / 1000);
-
   if (seconds < 60) return `${seconds}s ago`;
   const minutes = Math.floor(seconds / 60);
   if (minutes < 60) return `${minutes}m ago`;
@@ -34,9 +32,10 @@ function getDuration(start) {
   return `${days}d ago`;
 }
 
+// ===== 主组件 =====
 export default function Connections() {
   const [conns, setConns] = useState([]);
-  const [allConns, setAllConns] = useState([]);
+  const [closedConns, setClosedConns] = useState([]);
   const [filterStatus, setFilterStatus] = useState("active");
   const [uploadTotal, setUploadTotal] = useState(0);
   const [downloadTotal, setDownloadTotal] = useState(0);
@@ -45,73 +44,69 @@ export default function Connections() {
   const [sortDir, setSortDir] = useState("desc");
   const [filterText, setFilterText] = useState("");
 
-  // 订阅连接
+  const prevConnsRef = useRef([]);
+
   useEffect(() => {
-    // subscribeConnections 返回取消订阅函数
     const unsubscribe = subscribeConnections((data) => {
       const list = data.connections || [];
       setConns(list);
       setUploadTotal(data.uploadTotal || 0);
       setDownloadTotal(data.downloadTotal || 0);
 
-      setAllConns((prev) => {
-        const map = new Map(prev.map((c) => [c.id, c]));
-        list.forEach((c) => map.set(c.id, c));
-        return Array.from(map.values());
-      });
-
+      // 更新速率快照
       setLastSnapshot((prev) => {
         const now = Date.now();
         const next = {};
         list.forEach((c) => {
           const p = prev[c.id];
-          const dt = p ? now - p.time : null;
-
-          if (p && dt != null && dt < 600) {
-            next[c.id] = { ...p }; // 保持上次速率
-          } else {
-            const seconds = Math.max(0.001, dt / 1000);
-            next[c.id] = {
-              upload: c.upload,
-              download: c.download,
-              time: now,
-              upSpeed: p ? Math.max(0, (c.upload - p.upload) / seconds) : 0,
-              downSpeed: p
-                ? Math.max(0, (c.download - p.download) / seconds)
-                : 0,
-            };
-          }
+          const dt = p ? now - p.time : 0.001;
+          next[c.id] = {
+            upload: c.upload,
+            download: c.download,
+            time: now,
+            upSpeed: p ? Math.max(0, (c.upload - p.upload) / (dt / 1000)) : 0,
+            downSpeed: p
+              ? Math.max(0, (c.download - p.download) / (dt / 1000))
+              : 0,
+          };
         });
         return next;
       });
+
+      // 计算 Closed 连接
+      const prev = prevConnsRef.current;
+      const ids = new Set(list.map((c) => c.id));
+      const closed = prev.filter((p) => !ids.has(p.id));
+      if (closed.length) {
+        setClosedConns((old) => [...closed, ...old].slice(0, 50));
+      }
+      prevConnsRef.current = list;
     });
 
     return () => unsubscribe();
   }, []);
 
-  // 当前总速率
-  const totalUpSpeed = useMemo(() => {
-    return Object.values(lastSnapshot).reduce(
-      (sum, s) => sum + (s.upSpeed || 0),
-      0,
-    );
-  }, [lastSnapshot]);
+  const totalUpSpeed = useMemo(
+    () =>
+      Object.values(lastSnapshot).reduce((sum, s) => sum + (s.upSpeed || 0), 0),
+    [lastSnapshot],
+  );
+  const totalDownSpeed = useMemo(
+    () =>
+      Object.values(lastSnapshot).reduce(
+        (sum, s) => sum + (s.downSpeed || 0),
+        0,
+      ),
+    [lastSnapshot],
+  );
 
-  const totalDownSpeed = useMemo(() => {
-    return Object.values(lastSnapshot).reduce(
-      (sum, s) => sum + (s.downSpeed || 0),
-      0,
-    );
-  }, [lastSnapshot]);
-
-  const activeCount = conns.length;
-  const closedCount = allConns.length - conns.length;
-
-  // 过滤
   const filteredConns = useMemo(() => {
-    let list = allConns;
-
-    // 搜索过滤
+    let list =
+      filterStatus === "active"
+        ? conns
+        : filterStatus === "closed"
+          ? closedConns
+          : conns;
     if (filterText) {
       const s = filterText.trim().toLowerCase();
       list = list.filter((c) => {
@@ -128,71 +123,45 @@ export default function Connections() {
         return hay.includes(s);
       });
     }
-
-    // 状态过滤
-    if (filterStatus === "active") {
-      list = list.filter((c) => conns.find((x) => x.id === c.id));
-    } else if (filterStatus === "closed") {
-      list = list.filter((c) => !conns.find((x) => x.id === c.id));
-    }
-
     return list;
-  }, [allConns, conns, filterText, filterStatus]);
+  }, [conns, closedConns, filterStatus, filterText]);
 
-  // 排序
+  const getSortValue = (c, key) => {
+    switch (key) {
+      case "source":
+        return `${c.metadata.sourceIP}:${c.metadata.sourcePort}`;
+      case "destination":
+        return `${c.metadata.destinationIP}:${c.metadata.destinationPort}`;
+      case "proxy":
+        return (c.chains || []).join(",");
+      case "host":
+        return c.metadata.host || "";
+      case "upload":
+        return +c.upload || 0;
+      case "download":
+        return +c.download || 0;
+      case "upSpeed":
+        return lastSnapshot[c.id]?.upSpeed || 0;
+      case "downSpeed":
+        return lastSnapshot[c.id]?.downSpeed || 0;
+      case "network":
+        return (c.metadata.network || "").toUpperCase();
+      case "type":
+        return c.metadata.type || "";
+      default:
+        return new Date(c.start).getTime() || 0;
+    }
+  };
+
   const sortedConns = useMemo(() => {
     const list = [...filteredConns];
     list.sort((a, b) => {
-      let valA, valB;
-      switch (sortKey) {
-        case "source":
-          valA = `${a.metadata.sourceIP}:${a.metadata.sourcePort}`;
-          valB = `${b.metadata.sourceIP}:${b.metadata.sourcePort}`;
-          break;
-        case "destination":
-          valA = `${a.metadata.destinationIP}:${a.metadata.destinationPort}`;
-          valB = `${b.metadata.destinationIP}:${b.metadata.destinationPort}`;
-          break;
-        case "proxy":
-          valA = (a.chains || []).join(",");
-          valB = (b.chains || []).join(",");
-          break;
-        case "host":
-          valA = a.metadata.host || "";
-          valB = b.metadata.host || "";
-          break;
-        case "upload":
-          valA = Number(a.upload) || 0;
-          valB = Number(b.upload) || 0;
-          break;
-        case "download":
-          valA = Number(a.download) || 0;
-          valB = Number(b.download) || 0;
-          break;
-        case "upSpeed":
-          valA = Number(lastSnapshot[a.id]?.upSpeed) || 0;
-          valB = Number(lastSnapshot[b.id]?.upSpeed) || 0;
-          break;
-        case "downSpeed":
-          valA = Number(lastSnapshot[a.id]?.downSpeed) || 0;
-          valB = Number(lastSnapshot[b.id]?.downSpeed) || 0;
-          break;
-        case "network":
-          valA = (a.metadata.network || "").toUpperCase();
-          valB = (b.metadata.network || "").toUpperCase();
-          break;
-        case "type":
-          valA = a.metadata.type || "";
-          valB = b.metadata.type || "";
-          break;
-        default:
-          valA = new Date(a.start).getTime() || 0;
-          valB = new Date(b.start).getTime() || 0;
-      }
-      if (typeof valA === "string" && typeof valB === "string") {
-        const res = valA.localeCompare(valB);
-        return sortDir === "asc" ? res : -res;
-      }
+      const valA = getSortValue(a, sortKey);
+      const valB = getSortValue(b, sortKey);
+      if (typeof valA === "string" && typeof valB === "string")
+        return sortDir === "asc"
+          ? valA.localeCompare(valB)
+          : valB.localeCompare(valA);
       if (valA < valB) return sortDir === "asc" ? -1 : 1;
       if (valA > valB) return sortDir === "asc" ? 1 : -1;
       return 0;
@@ -201,12 +170,17 @@ export default function Connections() {
   }, [filteredConns, sortKey, sortDir, lastSnapshot]);
 
   const handleSort = (key) => {
-    if (sortKey === key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
+    if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    else {
       setSortKey(key);
       setSortDir("desc");
     }
+  };
+
+  const handleCloseAll = async () => {
+    try {
+      await closeAllConnections();
+    } catch {}
   };
 
   const sortFields = [
@@ -222,12 +196,6 @@ export default function Connections() {
     { label: "Duration", key: "start" },
     { label: "Type", key: "type" },
   ];
-
-  const handleCloseAll = async () => {
-    try {
-      await closeAllConnections();
-    } catch {}
-  };
 
   return (
     <div className="p-2 text-white">
@@ -255,7 +223,7 @@ export default function Connections() {
             }`}
           >
             <span className="w-3 h-3 rounded-full bg-green-500"></span>
-            Active: {activeCount}
+            Active: {conns.length}
           </button>
 
           <button
@@ -267,19 +235,7 @@ export default function Connections() {
             }`}
           >
             <span className="w-3 h-3 rounded-full bg-gray-500"></span>
-            Closed: {closedCount}
-          </button>
-
-          <button
-            onClick={() => setFilterStatus("all")}
-            className={`flex items-center gap-1 px-2 py-1 rounded transition ${
-              filterStatus === "all"
-                ? "bg-blue-600/80"
-                : "bg-gray-800/20 hover:bg-blue-500/30"
-            }`}
-          >
-            <span className="w-3 h-3 rounded-full bg-blue-500"></span>
-            All: {allConns.length}
+            Closed: {closedConns.length}
           </button>
         </div>
 
