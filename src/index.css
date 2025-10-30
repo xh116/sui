@@ -28,3 +28,11 @@
 .border-accent {
   border-color: var(--color-accent);
 }
+
+/* 全局统一 Twemoji SVG 尺寸 */
+img.emoji {
+  display: inline;
+  width: 1.2em;
+  height: 1.2em;
+  vertical-align: middle; 
+}
