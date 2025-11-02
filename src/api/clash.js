@@ -74,7 +74,7 @@ export const closeConnection = (id) =>
 // 测试单个节点延迟
 export const testDelay = async (
   proxyName,
-  url = "http://www.gstatic.com/generate_204",
+  url = "https://connectivitycheck.gstatic.com/generate_204",
   timeout = 5000,
   signal,
 ) => {
