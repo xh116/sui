@@ -29,7 +29,7 @@ export default function TrafficChart() {
     });
 
     return () => {
-      unsubscribe(); // ✅ 清理 WebSocket 连接
+      unsubscribe();  
       window.removeEventListener("resize", resizeCanvas);
     };
   }, []);
@@ -45,127 +45,131 @@ export default function TrafficChart() {
   };
 
   const drawChart = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    const { width, height } = canvas.getBoundingClientRect();
+  const canvas = canvasRef.current;
+  if (!canvas) return;
+  const ctx = canvas.getContext("2d");
+  const { width, height } = canvas.getBoundingClientRect();
 
-    ctx.clearRect(0, 0, width, height);
+  ctx.clearRect(0, 0, width, height);
 
-    const maxVal = Math.max(
-      ...dataRef.current.map((d) => Math.max(d.up, d.down)),
-      1,
-    );
-    const stepX = width / (dataRef.current.length || 1);
+  const maxVal = Math.max(
+    ...dataRef.current.map((d) => Math.max(d.up, d.down)),
+    1,
+  );
+  const stepX = width / (dataRef.current.length || 1);
 
-    // --- 基准线 (0 B/s) ---
-    ctx.strokeStyle = "rgba(255,255,255,0.2)"; // 更浅的虚线
-    ctx.setLineDash([4, 4]);
+  // --- 基准线 (0 B/s) ---
+  ctx.strokeStyle = "rgba(255,255,255,0.2)";
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(0, height);
+  ctx.lineTo(width, height);
+  ctx.stroke();
+  ctx.font = "10px sans-serif";
+  ctx.fillStyle = "rgba(255,255,255,0.5)";
+  ctx.fillText("0 B/s", 4, height - 2);
+
+  // --- 5 条等分虚线 ---
+  const gridCount = 5;
+  for (let i = 1; i <= gridCount; i++) {
+    const value = (maxVal / gridCount) * i;
+    const y = height - (value / maxVal) * height;
+
     ctx.beginPath();
-    ctx.moveTo(0, height);
-    ctx.lineTo(width, height);
+    ctx.moveTo(0, y);
+    ctx.lineTo(width, y);
     ctx.stroke();
-    ctx.font = "10px sans-serif";
-    ctx.fillStyle = "rgba(255,255,255,0.5)";
-    ctx.fillText("0 B/s", 4, height - 2);
 
-    // --- 5 条等分虚线 ---
-    const gridCount = 5;
-    for (let i = 1; i <= gridCount; i++) {
-      const value = (maxVal / gridCount) * i;
-      const y = height - (value / maxVal) * height;
+    ctx.fillText(formatSpeed(value), 4, y - 2);
+  }
+  ctx.setLineDash([]);
 
-      ctx.beginPath();
-      ctx.moveTo(0, y);
-      ctx.lineTo(width, y);
-      ctx.stroke();
+  // --- 平滑绘制函数 ---
+ const drawSmoothArea = (ctx, data, gradientColors) => {
+  if (!data.length) return;
+  const height = canvasRef.current.getBoundingClientRect().height;
 
-      ctx.fillText(formatSpeed(value), 4, y - 2);
-    }
-    ctx.setLineDash([]);
+  // --- 绘制面积 ---
+  ctx.beginPath();
+  // 从底部开始闭合
+  ctx.moveTo(0, height);
+  ctx.lineTo(0, height - (data[0] / maxVal) * height); // 第一个数据点
 
-    // --- 上行 (紫色渐变面积) ---
+  for (let i = 0; i < data.length - 1; i++) {
+    const x0 = i * stepX;
+    const y0 = height - (data[i] / maxVal) * height;
+    const x1 = (i + 1) * stepX;
+    const y1 = height - (data[i + 1] / maxVal) * height;
+    const cx = (x0 + x1) / 2;
+    const cy = (y0 + y1) / 2;
+    ctx.quadraticCurveTo(x0, y0, cx, cy);
+  }
+
+  const lastX = (data.length - 1) * stepX;
+  const lastY = height - (data[data.length - 1] / maxVal) * height;
+  ctx.lineTo(lastX, lastY);
+  ctx.lineTo(lastX, height); // 回到底部闭合
+  ctx.closePath();
+
+  // 渐变填充
+  const gradient = ctx.createLinearGradient(0, 0, 0, height);
+  gradient.addColorStop(0, gradientColors[0]);
+  gradient.addColorStop(1, gradientColors[1]);
+  ctx.fillStyle = gradient;
+  ctx.fill();
+
+  // --- 绘制曲线描边 ---
+  ctx.beginPath();
+  ctx.moveTo(0, height - (data[0] / maxVal) * height); // 第一个点和圆点完全对齐
+  for (let i = 0; i < data.length - 1; i++) {
+    const x0 = i * stepX;
+    const y0 = height - (data[i] / maxVal) * height;
+    const x1 = (i + 1) * stepX;
+    const y1 = height - (data[i + 1] / maxVal) * height;
+    const cx = (x0 + x1) / 2;
+    const cy = (y0 + y1) / 2;
+    ctx.quadraticCurveTo(x0, y0, cx, cy);
+  }
+  ctx.lineTo(lastX, lastY); // 确保最后一点和圆点对齐
+  ctx.stroke();
+};
+
+  // --- 上行 ---
+  ctx.strokeStyle = "#c084fc";
+  ctx.lineWidth = 2;
+  drawSmoothArea(ctx, dataRef.current.map(d => d.up), ["rgba(192,132,252,0.8)", "rgba(192,132,252,0.2)"]);
+
+  // 上行最新点
+  if (dataRef.current.length > 0) {
+    const last = dataRef.current[dataRef.current.length - 1];
+    const lastX = (dataRef.current.length - 1) * stepX;
+    const lastY = height - (last.up / maxVal) * height;
     ctx.beginPath();
-    dataRef.current.forEach((d, i) => {
-      const x = i * stepX;
-      const y = height - (d.up / maxVal) * height;
-      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-    });
-    ctx.lineTo(width, height);
-    ctx.lineTo(0, height);
-    ctx.closePath();
-
-    const upGradient = ctx.createLinearGradient(0, 0, 0, height);
-    upGradient.addColorStop(0, "rgba(192,132,252,0.8)");
-    upGradient.addColorStop(1, "rgba(192,132,252,0.2)");
-    ctx.fillStyle = upGradient;
+    ctx.arc(lastX, lastY, 3, 0, Math.PI * 2);
+    ctx.fillStyle = "#e879f9";
     ctx.fill();
-
-    // 上行曲线
-    ctx.beginPath();
-    ctx.strokeStyle = "#c084fc";
-    ctx.lineWidth = 2;
-    dataRef.current.forEach((d, i) => {
-      const x = i * stepX;
-      const y = height - (d.up / maxVal) * height;
-      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-    });
+    ctx.strokeStyle = "#a855f7";
     ctx.stroke();
+  }
 
-    // 最新点小圆点
-    if (dataRef.current.length > 0) {
-      const last = dataRef.current[dataRef.current.length - 1];
-      const lastX = (dataRef.current.length - 1) * stepX;
-      const lastY = height - (last.up / maxVal) * height;
-      ctx.beginPath();
-      ctx.arc(lastX, lastY, 3, 0, Math.PI * 2); // 固定半径 3
-      ctx.fillStyle = "#e879f9"; // 亮紫
-      ctx.fill();
-      ctx.strokeStyle = "#a855f7"; // 深紫边框
-      ctx.stroke();
-    }
+  // --- 下行 ---
+  ctx.strokeStyle = "#4ade80";
+  ctx.lineWidth = 2;
+  drawSmoothArea(ctx, dataRef.current.map(d => d.down), ["rgba(74,222,128,0.8)", "rgba(74,222,128,0.2)"]);
 
-    // --- 下行 (绿色渐变面积) ---
+  // 下行最新点
+  if (dataRef.current.length > 0) {
+    const last = dataRef.current[dataRef.current.length - 1];
+    const lastX = (dataRef.current.length - 1) * stepX;
+    const lastY = height - (last.down / maxVal) * height;
     ctx.beginPath();
-    dataRef.current.forEach((d, i) => {
-      const x = i * stepX;
-      const y = height - (d.down / maxVal) * height;
-      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-    });
-    ctx.lineTo(width, height);
-    ctx.lineTo(0, height);
-    ctx.closePath();
-
-    const downGradient = ctx.createLinearGradient(0, 0, 0, height);
-    downGradient.addColorStop(0, "rgba(74,222,128,0.8)");
-    downGradient.addColorStop(1, "rgba(74,222,128,0.2)");
-    ctx.fillStyle = downGradient;
+    ctx.arc(lastX, lastY, 3, 0, Math.PI * 2);
+    ctx.fillStyle = "#86efac";
     ctx.fill();
-
-    // 下行曲线
-    ctx.beginPath();
-    ctx.strokeStyle = "#4ade80";
-    ctx.lineWidth = 2;
-    dataRef.current.forEach((d, i) => {
-      const x = i * stepX;
-      const y = height - (d.down / maxVal) * height;
-      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-    });
+    ctx.strokeStyle = "#15803d";
     ctx.stroke();
-
-    // 最新点小圆点
-    if (dataRef.current.length > 0) {
-      const last = dataRef.current[dataRef.current.length - 1];
-      const lastX = (dataRef.current.length - 1) * stepX;
-      const lastY = height - (last.down / maxVal) * height;
-      ctx.beginPath();
-      ctx.arc(lastX, lastY, 3, 0, Math.PI * 2); // 固定半径 3
-      ctx.fillStyle = "#86efac"; // 亮绿
-      ctx.fill();
-      ctx.strokeStyle = "#15803d"; // 深绿边框
-      ctx.stroke();
-    }
-  };
+  }
+};
 
   return (
     <div className="flex flex-col h-64">
