@@ -302,15 +302,18 @@ export default function Connections() {
           const destination = c.metadata.host
             ? `${c.metadata.host}${c.metadata.destinationPort ? `:${c.metadata.destinationPort}` : ""}`
             : `${c.metadata.destinationIP}${c.metadata.destinationPort ? `:${c.metadata.destinationPort}` : ""}`;
+          const ruleSet = (c.rule?.match(/rule_set=(?:\[([^\]]+)\]|([^\s=>]+))/)?.[1] 
+                 || c.rule?.match(/rule_set=(?:\[([^\]]+)\]|([^\s=>]+))/)?.[2] 
+                 || "Direct");
           const proxyChain = (c.chains || []).slice().reverse().join(" → ");
           const type = c.metadata.type || "—";
           const network = (c.metadata.network || "—").toUpperCase();
           const networkColor =
             network === "TCP"
-              ? "bg-blue-500 text-white"
+              ? "bg-blue-500/80 text-white"
               : network === "UDP"
-                ? "bg-orange-500 text-white"
-                : "bg-gray-500 text-white";
+                ? "bg-orange-500/80 text-white"
+                : "bg-gray-500/80 text-white";
           const duration = getDuration(c.start);
           const timeStr = c.start
             ? new Date(c.start).toLocaleTimeString(undefined, {
@@ -331,7 +334,9 @@ export default function Connections() {
               <div className="flex-1 ml-2 space-y-1 pr-20">
                 <div className="break-all">{destination}</div>
                 <div className="break-all">{source}</div>
-                <div className="break-all">{proxyChain}</div>
+                <div className="break-all">{proxyChain} 
+                   <span className="ml-1 text-gray-300/50 ">( {ruleSet} )</span>
+                </div>
               </div>
 
               {/* 右侧速率、流量、type、时间 */}
@@ -359,7 +364,7 @@ export default function Connections() {
                   </span>
                 </div>
                 <div className="text-gray-200 rounded-sm mt-1 flex gap-1 items-center">
-                  <span className="bg-cyan-400/50 px-1 rounded">{type}</span>
+                  <span className="bg-cyan-600/80 px-1 rounded">{type}</span>
                   <span
                     className={`px-0.5 rounded-sm text-[8px] font-normal ${networkColor}`}
                   >
