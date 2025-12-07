@@ -304,7 +304,7 @@ export default function Connections() {
             : `${c.metadata.destinationIP}${c.metadata.destinationPort ? `:${c.metadata.destinationPort}` : ""}`;
           const ruleSet = (c.rule?.match(/rule_set=(?:\[([^\]]+)\]|([^\s=>]+))/)?.[1] 
                  || c.rule?.match(/rule_set=(?:\[([^\]]+)\]|([^\s=>]+))/)?.[2] 
-                 || "Direct");
+                 || c.rule);
           const proxyChain = (c.chains || []).slice().reverse().join(" → ");
           const type = c.metadata.type || "—";
           const network = (c.metadata.network || "—").toUpperCase();
