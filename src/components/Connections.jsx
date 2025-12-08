@@ -302,9 +302,12 @@ export default function Connections() {
           const destination = c.metadata.host
             ? `${c.metadata.host}${c.metadata.destinationPort ? `:${c.metadata.destinationPort}` : ""}`
             : `${c.metadata.destinationIP}${c.metadata.destinationPort ? `:${c.metadata.destinationPort}` : ""}`;
-          const ruleSet = (c.rule?.match(/rule_set=(?:\[([^\]]+)\]|([^\s=>]+))/)?.[1] 
-                 || c.rule?.match(/rule_set=(?:\[([^\]]+)\]|([^\s=>]+))/)?.[2] 
-                 || c.rule);
+          const ruleSet = (() => {
+            const regex = /rule_set=(?:\[([^\]]+)\]|([^\s=>]+))/g;
+            const matches = [...c.rule?.matchAll(regex) || []]
+              .flatMap(m => (m[1] ? m[1].trim().split(/\s+/) : [m[2]]));
+            return matches.length ? matches.join(" ") : c.rule;
+          })();
           const proxyChain = (c.chains || []).slice().reverse().join(" → ");
           const type = c.metadata.type || "—";
           const network = (c.metadata.network || "—").toUpperCase();
