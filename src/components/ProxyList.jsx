@@ -386,7 +386,14 @@ export default function ProxyList() {
                   : "max-h-0 opacity-0 mt-6 scale-95 overflow-hidden"
               }`}
             >
-              <div className="grid grid-cols-[repeat(auto-fit,minmax(165px,1fr))] gap-3 mt-2">
+              <div
+                className="
+                  grid gap-3 mt-2
+                  grid-cols-[repeat(auto-fill,minmax(165px,1fr))]
+                  sm:grid-cols-[repeat(auto-fill,minmax(180px,1fr))]
+                  lg:grid-cols-[repeat(auto-fill,minmax(220px,1fr))]
+                "
+              >
                 {nodes.map((node) => {
                   const nodeName = node?.name ?? "";
                   const lastDelay =
