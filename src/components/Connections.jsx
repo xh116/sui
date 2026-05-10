@@ -57,7 +57,7 @@ export default function Connections() {
       setLastSnapshot((prev) => {
         const now = Date.now();
         const next = {};
-        list.forEach((c) => {
+        for (const c of list) {
           const p = prev[c.id];
           const dt = p ? now - p.time : 0.001;
           next[c.id] = {
@@ -65,11 +65,9 @@ export default function Connections() {
             download: c.download,
             time: now,
             upSpeed: p ? Math.max(0, (c.upload - p.upload) / (dt / 1000)) : 0,
-            downSpeed: p
-              ? Math.max(0, (c.download - p.download) / (dt / 1000))
-              : 0,
+            downSpeed: p ? Math.max(0, (c.download - p.download) / (dt / 1000)) : 0,
           };
-        });
+        }
         return next;
       });
 
