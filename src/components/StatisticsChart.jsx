@@ -20,77 +20,88 @@ ChartJS.register(
   Legend,
 );
 
-export default function StatisticsChart() {
-  const [hostTraffic, setHostTraffic] = useState({});
-  const [nodeTraffic, setNodeTraffic] = useState({});
-  const [lastSnapshot, setLastSnapshot] = useState({}); // 仅用于计算增量
+// --- 全局静态变量 ---
+let globalUnsubscribeStats = null;
+let globalLastSnapshot = {};
+let globalHostTraffic = {};
+let globalNodeTraffic = {};
+let globalStatsListeners = [];
 
-  // 初始化时恢复累计数据
-  useEffect(() => {
-    const savedHost = localStorage.getItem("hostTraffic");
-    const savedNode = localStorage.getItem("nodeTraffic");
-    if (savedHost) setHostTraffic(JSON.parse(savedHost));
-    if (savedNode) setNodeTraffic(JSON.parse(savedNode));
-  }, []);
+// --- 初始化 localStorage ---
+const savedHost = localStorage.getItem("hostTraffic");
+const savedNode = localStorage.getItem("nodeTraffic");
+if (savedHost) globalHostTraffic = JSON.parse(savedHost);
+if (savedNode) globalNodeTraffic = JSON.parse(savedNode);
 
-  // 订阅连接，计算增量并累计
-  useEffect(() => {
-    const unsubscribeConn = subscribeConnections((data) => {
-      const newSnapshot = {};
+// --- 全局订阅，只执行一次 ---
+if (!globalUnsubscribeStats) {
+  globalUnsubscribeStats = subscribeConnections((data) => {
+    const newSnapshot = {};
 
-      (data.connections || []).forEach((c) => {
-        const id = c.id;
-        const hasHost = c.metadata?.host && c.metadata.host.trim() !== "";
+    (data.connections || []).forEach((c) => {
+      const id = c.id;
+      const hasHost = c.metadata?.host && c.metadata.host.trim() !== "";
 
-        // host 统计（最后一个链路 + host）
-        const rule =
-          c.chains && c.chains.length > 0
-            ? c.chains[c.chains.length - 1]
-            : "UNKNOWN";
-        const host = hasHost
-          ? `${rule} | ${c.metadata.host}`
-          : `${rule} | ${c.metadata?.destinationIP || "unknown"}:${c.metadata?.destinationPort || ""}`;
+      const rule =
+        c.chains && c.chains.length > 0
+          ? c.chains[c.chains.length - 1]
+          : "UNKNOWN";
 
-        // 节点统计（第一个链路）
-        const firstChain =
-          c.chains && c.chains.length > 0 ? c.chains[0] : "UNKNOWN";
+      const host = hasHost
+        ? `${rule} | ${c.metadata.host}`
+        : `${rule} | ${c.metadata?.destinationIP || "unknown"}:${c.metadata?.destinationPort || ""}`;
 
-        const totalBytes = (c.upload || 0) + (c.download || 0);
+      const firstChain =
+        c.chains && c.chains.length > 0 ? c.chains[0] : "UNKNOWN";
 
-        // 🚨 新连接第一次出现时，只初始化，不累计
-        if (lastSnapshot[id] === undefined) {
-          newSnapshot[id] = totalBytes;
-          return;
-        }
+      const totalBytes = (c.upload || 0) + (c.download || 0);
 
-        const lastBytes = lastSnapshot[id];
-        const delta = Math.max(0, totalBytes - lastBytes);
-
-        if (delta > 0) {
-          // ✅ 累计到前端自己的统计
-          setHostTraffic((prev) => {
-            const updated = { ...prev, [host]: (prev[host] || 0) + delta };
-            localStorage.setItem("hostTraffic", JSON.stringify(updated));
-            return updated;
-          });
-          setNodeTraffic((prev) => {
-            const updated = {
-              ...prev,
-              [firstChain]: (prev[firstChain] || 0) + delta,
-            };
-            localStorage.setItem("nodeTraffic", JSON.stringify(updated));
-            return updated;
-          });
-        }
-
+      if (globalLastSnapshot[id] === undefined) {
         newSnapshot[id] = totalBytes;
-      });
+        return;
+      }
 
-      setLastSnapshot(newSnapshot); // 仅临时保存
+      const delta = Math.max(0, totalBytes - globalLastSnapshot[id]);
+
+      if (delta > 0) {
+        globalHostTraffic[host] = (globalHostTraffic[host] || 0) + delta;
+        globalNodeTraffic[firstChain] =
+          (globalNodeTraffic[firstChain] || 0) + delta;
+
+        localStorage.setItem("hostTraffic", JSON.stringify(globalHostTraffic));
+        localStorage.setItem("nodeTraffic", JSON.stringify(globalNodeTraffic));
+      }
+
+      newSnapshot[id] = totalBytes;
     });
 
-    return () => unsubscribeConn();
-  }, [lastSnapshot]);
+    globalLastSnapshot = newSnapshot;
+
+    // 通知所有 StatisticsChart 页面更新
+    globalStatsListeners.forEach((fn) => fn());
+  });
+}
+
+export default function StatisticsChart() {
+  const [hostTraffic, setHostTraffic] = useState(globalHostTraffic);
+  const [nodeTraffic, setNodeTraffic] = useState(globalNodeTraffic);
+
+  // 页面监听全局数据
+  useEffect(() => {
+    const listener = () => {
+      setHostTraffic({ ...globalHostTraffic });
+      setNodeTraffic({ ...globalNodeTraffic });
+    };
+
+    globalStatsListeners.push(listener);
+    listener(); // 初次同步
+
+    return () => {
+      globalStatsListeners = globalStatsListeners.filter(
+        (fn) => fn !== listener,
+      );
+    };
+  }, []);
 
   // Top10 Hosts
   const topHosts = Object.entries(hostTraffic)
@@ -124,7 +135,7 @@ export default function StatisticsChart() {
         backgroundColor: topHosts.map((_, i) => colors[i % colors.length]),
         borderRadius: 8,
         barThickness: window.innerWidth < 640 ? 14 : 18,
-        barPercentage: 0.6, // 单个 bar 占类别宽度的比例
+        barPercentage: 0.6,
         categoryPercentage: 1.2,
       },
     ],
@@ -154,6 +165,8 @@ export default function StatisticsChart() {
   const clearLocalStorage = () => {
     localStorage.removeItem("hostTraffic");
     localStorage.removeItem("nodeTraffic");
+    globalHostTraffic = {};
+    globalNodeTraffic = {};
     setHostTraffic({});
     setNodeTraffic({});
   };
@@ -206,18 +219,18 @@ export default function StatisticsChart() {
       legend: {
         position: "right",
         labels: {
-          color: "#818fa1", // 和柱状图文字颜色一致
-          font: { size: 10 }, // 和柱状图文字大小一致
+          color: "#818fa1",  
+          font: { size: 10 },  
           generateLabels: (chart) => {
             const data = chart.data;
             if (data.labels.length) {
               return data.labels.map((label, i) => {
                 const value = data.datasets[0].data[i];
                 return {
-                  text: `${label}  ${formatBytes(value)}`, // ✅ 节点名 + 流量
+                  text: `${label}  ${formatBytes(value)}`,  
                   fillStyle: data.datasets[0].backgroundColor[i],
                   strokeStyle: data.datasets[0].backgroundColor[i],
-                  fontColor: "#818fa1", // 确保颜色生效
+                  fontColor: "#818fa1",
                   hidden: false,
                   index: i,
                 };
@@ -226,17 +239,15 @@ export default function StatisticsChart() {
             return [];
           },
         },
-        onClick: null, // 🚫 禁用点击
+        onClick: null,  
       },
-      tooltip: { enabled: false }, // 🚫 禁用 hover 提示
+      tooltip: { enabled: false },  
     },
   };
 
   return (
     <div className="py-1 flex flex-col relative">
-      {/* 父容器：小屏 flex-col，大屏 md:flex-row */}
       <div className="flex flex-col md:flex-row gap-2 md:gap-2 h-full">
-        {/* 左边：Top10 Hosts 柱状图，占 3/5 */}
         <div className="w-full md:w-3/5  h-[400px] md:h-[480px]">
           <h2 className="text-sm mb-2 text-cyan-400 mt-2">Top 10 Hosts</h2>
           <Bar
@@ -246,7 +257,6 @@ export default function StatisticsChart() {
           />
         </div>
 
-        {/* 右边：Top10 节点 饼状图，占 2/5 */}
         <div className="w-full md:w-2/5 h-[240px] mt-10 md:h-[360px]">
           <h2 className="text-sm mb-2 text-pink-400 md:mt-2">Top 10 Nodes</h2>
           <Pie
@@ -254,7 +264,7 @@ export default function StatisticsChart() {
             options={{ ...pieOptions, maintainAspectRatio: false }}
           />
         </div>
-        {/* 清除按钮 */}
+
         <button
           onClick={clearLocalStorage}
           className="absolute top-1 right-2 p-1 rounded transition-colors duration-200"
