@@ -35,10 +35,8 @@ const ClashIcon = ({ width = 72, height = 72 }) => (
     {/* 头部 */}
     <ellipse cx="12" cy="13" rx="8.5" ry="7.5" />
 
-    {/* 左耳 - 尖一点 */}
     <path d="M5 6 Q3.2 0.5 6.5 0.2 Q6.5 1.2 9.2 5 Q7.8 5.4 6 6.2 Z" />
 
-    {/* 右耳 - 对称 */}
     <path d="M19 6 Q20.8 1 17.5 0.5 Q17.2 1.2 14.8 5 Q16.2 5.4 18 6.2 Z" />
 
     {/* 眼睛 */}
@@ -185,9 +183,7 @@ const PowerIcon = ({ className = "w-5 h-5" }) => (
     strokeLinecap="round"
     strokeLinejoin="round"
   >
-    {/* 外圈 */}
     <path d="M6.3 6.3a9 9 0 1 0 11.4 0" />
-    {/* 中间竖线 */}
     <line x1="12" y1="2" x2="12" y2="12" />
   </svg>
 );
@@ -234,19 +230,19 @@ export default function Sidebar() {
   return (
     <aside
       className={`
-        relative
         text-white
         flex p-2 pr-1 
         md:flex-col md:w-40 md:h-auto md:space-y-1
-        flex-row w-full h-12 space-x-1 md:space-x-0
+
+        flex-row h-14 space-x-1 md:space-x-0
+        fixed md:relative bottom-3 left-3 right-3 z-50
+        backdrop-blur-md rounded-xl shadow-lg        
       `}
     >
-      {/* 顶部：内核类型 */}
       <div className="hidden md:flex justify-center px-3 py-2">
         <KernelIcon className="w-6 h-6 text-white" />
       </div>
 
-      {/* 菜单 */}
       {menu.map(({ key, label, icon: Icon }) => (
         <Link
           key={key}
@@ -267,7 +263,6 @@ export default function Sidebar() {
         </Link>
       ))}
 
-      {/* 底部：版本信息 */}
       <div className="hidden md:flex flex-col items-start absolute mb-3 bottom-5 px-3 py-2 pl-2 text-[10px] text-white/50">
         <div className="flex items-center gap-1 mt-1">
           <VersionIcon className="w-3 h-3 text-white/70" />
@@ -287,7 +282,7 @@ export default function Sidebar() {
           <PowerIcon className="w-4 h-4 text-white" />
         </button>
       </div>
-      {/* 底部 Credit */}
+
       <div className="hidden md:flex absolute left-5 bottom-1 w-full text-[8px] text-gray-200/30 hover:text-white/70 transition-colors duration-300">
         <a
           href="https://github.com/xh116/sui"
