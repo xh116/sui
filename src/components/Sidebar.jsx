@@ -235,7 +235,7 @@ export default function Sidebar() {
         md:flex-col md:w-40 md:h-auto md:space-y-1
 
         flex-row h-14 space-x-1 md:space-x-0
-        fixed md:relative bottom-3 left-3 right-3 z-50
+        fixed md:relative bottom-1 left-3 right-3 z-50
         backdrop-blur-md md:backdrop-blur-none 
         rounded-xl     
       `}
