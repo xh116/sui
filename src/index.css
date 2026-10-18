@@ -1,0 +1,234 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-text: #e6edf2;
+}
+
+/* 全局背景渐变 + 半透明 */
+.bg-bg {
+  background: linear-gradient(
+    to bottom right,
+    rgba(38, 51, 58, 0.85),
+    rgba(38, 51, 58, 0.75),
+    rgba(38, 51, 58, 0.6)
+  );
+}
+
+/* 文字 & 边框颜色 */
+.text-text {
+  color: var(--color-text);
+}
+/* 注册字体 */
+
+@font-face {
+  font-family: "TwemojiFlags";
+  src: url("./fonts/TwemojiCountryFlags.woff2") format("woff2");
+  font-display: swap;
+}
+/* 全局统一 Twemoji Flag字体 没有则fallback到系统 */
+body, * {
+  font-family: "TwemojiFlags", sans-serif;
+}
+
+/* Slim native scrollbars (macOS "always show" renders them heavy) */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(150, 165, 175, 0.35) transparent;
+}
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(150, 165, 175, 0.35);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(150, 165, 175, 0.55);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+:root[data-theme="light"] {
+  --color-text: #1f2933;
+}
+
+:root[data-theme="light"] body {
+  background: #eef3f6;
+  color: var(--color-text);
+}
+
+:root[data-theme="light"] .bg-bg {
+  background: linear-gradient(
+    to bottom right,
+    rgba(238, 243, 246, 0.96),
+    rgba(224, 232, 237, 0.9),
+    rgba(211, 222, 229, 0.85)
+  );
+}
+
+/* Fallback for any text-white/gray/neutral utility that has no dedicated
+   light-theme tone below. It has the same specificity as the rules that
+   follow, so it must stay first and let them win. */
+:root[data-theme="light"] [class*="text-white"],
+:root[data-theme="light"] [class*="text-gray-"],
+:root[data-theme="light"] [class*="text-neutral-"] {
+  color: #26333a;
+}
+
+/* Elements whose only text utility is a hover:* one (for example the sidebar
+   credit link) carry no base tone of their own, so give them a muted one
+   instead of the primary tone the fallback above would apply. These must come
+   before the explicit tones so the latter win when both are present. */
+:root[data-theme="light"] [class~="hover:text-white"] {
+  color: #52616b;
+}
+:root[data-theme="light"] [class~="hover:text-white/70"] {
+  color: #67737d;
+}
+:root[data-theme="light"] [class~="hover:text-white/80"] {
+  color: rgba(38, 51, 58, 0.5);
+}
+
+/* `text-white` marks the primary/active text. */
+:root[data-theme="light"] [class~="text-white"] {
+  color: #1f2933;
+}
+
+/* Opacity steps: keep the idle/active hierarchy instead of flattening every
+   text-white/N onto one tone. */
+:root[data-theme="light"] [class~="text-white/40"] { color: #67737d; }
+:root[data-theme="light"] [class~="text-white/50"] { color: #5d6972; }
+:root[data-theme="light"] [class~="text-white/60"] { color: #52616b; }
+:root[data-theme="light"] [class~="text-white/70"] { color: #414e58; }
+:root[data-theme="light"] [class~="text-white/80"] { color: #2f3a44; }
+
+/* These gray shades are dimmed for a dark background, so on a light one they
+   need a mid gray instead of the primary text tone. The /30 shade is the
+   deliberately faint sidebar credit line. */
+:root[data-theme="light"] [class~="text-gray-200"],
+:root[data-theme="light"] [class~="text-gray-300"],
+:root[data-theme="light"] [class~="text-gray-400"],
+:root[data-theme="light"] [class~="text-gray-500"] {
+  color: #52616b;
+}
+:root[data-theme="light"] [class~="text-gray-200/30"] {
+  color: rgba(38, 51, 58, 0.5);
+}
+
+:root[data-theme="light"] [class*="bg-gray-"],
+:root[data-theme="light"] [class*="bg-neutral-"],
+:root[data-theme="light"] [class*="bg-[#212"],
+:root[data-theme="light"] [class*="bg-[#263"],
+:root[data-theme="light"] [class*="border-gray-"] {
+  background-color: rgba(255, 255, 255, 0.72);
+  border-color: rgba(82, 97, 107, 0.24);
+}
+
+/* hover:* text utilities must not resolve to near-white against a light
+   background. */
+:root[data-theme="light"] [class~="hover:text-white"]:hover {
+  color: #1f2933;
+}
+:root[data-theme="light"] [class~="hover:text-white/70"]:hover {
+  color: #414e58;
+}
+:root[data-theme="light"] [class~="hover:text-white/80"]:hover {
+  color: #2f3a44;
+}
+
+:root[data-theme="light"] [class*="placeholder-gray-"]::placeholder {
+  color: #6b7780;
+}
+
+:root[data-theme="light"] [class*="border-white"],
+:root[data-theme="light"] [class*="divide-gray-"] {
+  border-color: rgba(82, 97, 107, 0.24);
+}
+
+/* Light theme: the accent text shades below are tuned for a dark
+   background, so remap them to readable darker tones. Whole-token
+   matching (class~=) keeps hover:* and other variant classes intact. */
+:root[data-theme="light"] [class~="text-purple-400"],
+:root[data-theme="light"] [class~="text-purple-300"],
+:root[data-theme="light"] [class~="text-purple-400/80"] {
+  color: #6d28d9;
+}
+:root[data-theme="light"] [class~="text-green-400"],
+:root[data-theme="light"] [class~="text-green-300"],
+:root[data-theme="light"] [class~="text-green-400/80"] {
+  color: #15803d;
+}
+:root[data-theme="light"] [class~="text-blue-400"] {
+  color: #1d4ed8;
+}
+:root[data-theme="light"] [class~="text-cyan-400"] {
+  color: #0e7490;
+}
+:root[data-theme="light"] [class~="text-pink-400"] {
+  color: #be185d;
+}
+:root[data-theme="light"] [class~="text-yellow-500"] {
+  color: #a16207;
+}
+:root[data-theme="light"] [class~="text-red-500"],
+:root[data-theme="light"] [class~="text-red-400"] {
+  color: #b91c1c;
+}
+
+/* Connections traffic bar: its dark gray gradient is heaviest on the left and
+   reads as a murky block on the light theme. Swap it for a soft accent tint. */
+:root[data-theme="light"] [class~="from-gray-800/80"] {
+  background-image: linear-gradient(
+    to right,
+    rgba(136, 192, 208, 0.22),
+    rgba(136, 192, 208, 0.06)
+  );
+}
+
+/* Selected proxy node: in dark mode it is tinted differently from the
+   unselected cards, but both collapse to the same white here, so highlight
+   the selected one with an accent background and an inset ring. Scoped with
+   text-gray-200/80 so the #212b2e tooltip keeps its own styling. */
+:root[data-theme="light"] [class~="bg-[#212b2e]"][class~="text-gray-200/80"] {
+  background-color: rgba(136, 192, 208, 0.3);
+  box-shadow: inset 0 0 0 1px rgba(82, 97, 107, 0.4);
+}
+
+/* Sidebar theme switch: a moon/sun two-segment control. Styled here rather
+   than with utilities so the active segment keeps enough contrast in both
+   themes (the generic bg and text overrides above would flatten it). */
+.theme-switch {
+  background-color: rgba(255, 255, 255, 0.09);
+}
+.theme-switch button {
+  color: rgba(255, 255, 255, 0.5);
+  transition:
+    color 150ms ease,
+    background-color 150ms ease;
+}
+.theme-switch button:hover {
+  color: #fff;
+}
+.theme-switch button[data-active="true"] {
+  background-color: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+:root[data-theme="light"] .theme-switch {
+  background-color: rgba(38, 51, 58, 0.09);
+}
+:root[data-theme="light"] .theme-switch button {
+  color: #6b7780;
+}
+:root[data-theme="light"] .theme-switch button:hover {
+  color: #1f2933;
+}
+:root[data-theme="light"] .theme-switch button[data-active="true"] {
+  background-color: #fff;
+  color: #1f2933;
+  box-shadow: 0 1px 2px rgba(38, 51, 58, 0.18);
+}
