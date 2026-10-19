@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="./assets/icon-CQ9oKloi.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      // Apply the saved theme before first paint to avoid a dark flash.
+      try {
+        document.documentElement.dataset.theme =
+          localStorage.getItem("theme") === "light" ? "light" : "dark";
+      } catch (e) {}
+      // WebKit leaks the color of COLR emoji glyphs into the text that follows
+      // them (bugs 281739 / 304249), so a theme switch leaves proxy names in
+      // the previous theme's color. Mark the engine and let CSS fall back to
+      // the system emoji font there. iOS browsers all use WebKit.
+      var ua = navigator.userAgent;
+      var isIOS =
+        /iPhone|iPad|iPod/.test(ua) ||
+        (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+      if (
+        /AppleWebKit/.test(ua) &&
+        (isIOS || !/(Chrome|Chromium|Edg|OPR|Firefox)/.test(ua))
+      ) {
+        document.documentElement.classList.add("is-safari");
+      }
+    </script>
+    <title>Sing-box Dashboard</title>
+    <script type="module" crossorigin src="./assets/index-BXNzcJD5.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-BgnFKt_s.css">
+  </head>
+  <body class="bg-bg text-text">
+    <div id="root"></div>
+  </body>
+</html>

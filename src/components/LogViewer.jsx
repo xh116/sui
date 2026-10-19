@@ -1,0 +1,241 @@
+import { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import {
+  API_MODES,
+  clearLogs,
+  getApiMode,
+  subscribeLogs,
+} from "../api";
+
+const TrashIcon = ({ className = "w-4 h-4" }) => (
+  <svg
+    viewBox="0 0 24 24"
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <path d="M3 6h18" />
+    <path d="M8 6V4h8v2" />
+    <path d="M19 6l-1 14H6L5 6" />
+    <path d="M10 11v5" />
+    <path d="M14 11v5" />
+  </svg>
+);
+
+// 解析日志行：提取 [时间] [类型] 消息
+function parseLogEntry(raw) {
+  const payload =
+    typeof raw?.payload === "string" ? raw.payload : String(raw?.payload ?? "");
+
+  const m = payload.match(
+    /^\[([0-9]{2}-[0-9]{2}-[0-9]{2}\s[0-9]{2}:[0-9]{2}:[0-9]{2})\]\s*\[([A-Z]+)\]\s*(.*)$/,
+  );
+
+  const formatDate = (date) => {
+    const yy = String(date.getFullYear()).slice(-2);
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const dd = String(date.getDate()).padStart(2, "0");
+    const hh = String(date.getHours()).padStart(2, "0");
+    const min = String(date.getMinutes()).padStart(2, "0");
+    const ss = String(date.getSeconds()).padStart(2, "0");
+    return `${yy}-${mm}-${dd} ${hh}:${min}:${ss}`;
+  };
+
+  if (m) {
+    return {
+      logTime: m[1], // 日志自带时间
+      type: m[2].toLowerCase(),
+      payload: m[3],
+      localTime: formatDate(new Date()), // 本地时间
+    };
+  }
+
+  const typeMatch = payload.match(/\[([A-Z]+)\]/);
+  const cleanPayload = payload.replace(/\[[A-Z]+\]/, "").trim();
+
+  return {
+    type: typeMatch ? typeMatch[1].toLowerCase() : (raw?.type ?? "info"),
+    payload: cleanPayload,
+    localTime: formatDate(new Date()),
+  };
+}
+
+export default function LogViewer() {
+  const [logs, setLogs] = useState([]);
+  const [paused, setPaused] = useState(false);
+  const [filterText, setFilterText] = useState("");
+  const pausedRef = useRef(paused);
+  const pendingRef = useRef([]);
+  const flushTimerRef = useRef(null);
+  const isSingBox = getApiMode() === API_MODES.grpc;
+
+  useEffect(() => {
+    pausedRef.current = paused;
+  }, [paused]);
+
+  const clearLocalLogs = useCallback(() => {
+    pendingRef.current = [];
+    if (flushTimerRef.current) {
+      clearTimeout(flushTimerRef.current);
+      flushTimerRef.current = null;
+    }
+    setLogs([]);
+  }, []);
+
+  useEffect(() => {
+    // Keep the subscription open while paused; only rendering is paused, so
+    // toggling Pause no longer tears down and reconnects the WebSocket.
+    const unsubscribe = subscribeLogs((log) => {
+      // ClearLogs and every (re)subscribe replace the buffered log list.
+      if (log.reset) clearLocalLogs();
+      if (!log.payload) return;
+      if (pausedRef.current) return;
+      pendingRef.current.push(parseLogEntry(log));
+      if (pendingRef.current.length > 1000) {
+        pendingRef.current.splice(0, pendingRef.current.length - 1000);
+      }
+      if (flushTimerRef.current) return;
+      // Batch bursts into one render instead of copying the array per line.
+      flushTimerRef.current = setTimeout(() => {
+        flushTimerRef.current = null;
+        const pending = pendingRef.current;
+        pendingRef.current = [];
+        if (!pending.length) return;
+        setLogs((prev) => {
+          const next = [...pending.reverse(), ...prev];
+          if (next.length > 1000) next.length = 1000;
+          return next;
+        });
+      }, 100);
+    });
+
+    return () => {
+      unsubscribe();
+      clearTimeout(flushTimerRef.current);
+      flushTimerRef.current = null;
+      pendingRef.current = [];
+    };
+  }, [clearLocalLogs]);
+
+  const handleClearLogs = async () => {
+    clearLocalLogs();
+    try {
+      await clearLogs();
+    } catch (err) {
+      console.error("Failed to clear logs", err);
+    }
+  };
+
+  const filteredLogs = useMemo(() => {
+    const s = filterText.trim().toLowerCase();
+    if (!s) return logs;
+    return logs.filter((log) =>
+      [log.logTime, log.localTime, log.type, log.payload]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase()
+        .includes(s),
+    );
+  }, [logs, filterText]);
+
+  return (
+    <div className="flex flex-col h-full p-2 text-white">
+      {/* 标题与操作 */}
+      <div className="flex justify-between items-center mb-3">
+        <h1 className="text-xl font-bold">Logs</h1>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setPaused(!paused)}
+            className="
+              px-3 py-1 rounded text-sm text-white
+              bg-gradient-to-r from-red-600/70 to-pink-500/70
+              hover:from-red-600/80 hover:to-pink-400/60
+              transition-colors duration-200"
+          >
+            {paused ? "Resume" : "Pause"}
+          </button>
+          {isSingBox && (
+            <button
+              onClick={handleClearLogs}
+              aria-label="Clear logs"
+              title="Clear logs"
+              className="p-1.5 rounded border border-gray-600 text-gray-300 hover:text-red-400 hover:border-red-400/60 transition-colors duration-200"
+            >
+              <TrashIcon />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* 搜索框行 */}
+      <div className="mb-3 flex items-center gap-3">
+        <input
+          type="text"
+          value={filterText}
+          onChange={(e) => setFilterText(e.target.value)}
+          placeholder="Filter..."
+          className="flex-1 w-full px-3 py-2 rounded-lg bg-gray-800/80 border border-gray-700 text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-accent focus:border-accent"
+        />
+      </div>
+
+      {/* 日志内容：统一卡片样式 */}
+      <div
+        className="flex-1 overflow-y-auto font-mono text-xs space-y-2"
+      >
+        <div className="space-y-1 text-[11px] pb-2">
+          {filteredLogs.map((log, idx) => {
+            const type = log.type.toUpperCase();
+            const typeColor =
+              type === "FATAL" || type === "PANIC"
+                ? "bg-red-900 px-1 rounded"
+                : type === "ERROR"
+                  ? "bg-red-800 px-1 rounded"
+                  : type === "WARN"
+                    ? "bg-orange-600 px-1 rounded"
+                    : type === "INFO"
+                      ? "bg-green-600 px-1 rounded"
+                      : type === "DEBUG"
+                        ? "bg-blue-700 px-1 rounded"
+                        : type === "TRACE"
+                          ? "bg-purple-700 px-1 rounded"
+                          : "bg-cyan-600 px-1 rounded";
+            return (
+              <div
+                key={idx}
+                className="bg-[#212d30]/60 rounded-md px-3 py-2 border border-gray-700 shadow-sm"
+              >
+                <div className="flex justify-between items-center mb-1">
+                  {/* 左侧：类型 + 时间 */}
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[10px] font-normal ${typeColor}`}>
+                      [{type}]
+                    </span>
+                    {log.logTime && (
+                      <span className="text-gray-400 text-[10px]">
+                        [{log.logTime}]
+                      </span>
+                    )}
+                    <span className="text-gray-400 text-[10px]">
+                      [{log.localTime}]
+                    </span>
+                  </div>
+                </div>
+
+                {/* 日志内容 */}
+                <div className="break-words text-gray-300 leading-snug">
+                  {log.payload}
+                </div>
+              </div>
+            );
+          })}
+          {filteredLogs.length === 0 && (
+            <div className="text-center text-gray-400 py-4">No logs</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
