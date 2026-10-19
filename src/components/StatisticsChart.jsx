@@ -94,14 +94,38 @@ const formatBytes = (n) => {
   return `${Math.round(n / 1024 ** i)} ${units[i]}`;
 };
 
+// TwemojiFlags provides the flag glyphs Segoe UI Emoji lacks on Windows. Emoji
+// fonts are deliberately NOT listed: they also cover ASCII digits with emoji-wide
+// advances, which makes dates/byte counts look spaced out. System fallback still
+// handles non-flag emoji.
+const CHART_FONT = '10px "TwemojiFlags", sans-serif';
+const PALETTE = ["#5470c6", "#91cc75", "#fac858", "#ee6666", "#73c0de", "#3ba272", "#fc8452", "#9a60b4", "#ea7ccc"];
+const LEGEND_ROW = 16;
+const SWATCH = 10;
+const SWATCH_GAP = 6;
+
+const graphemeSegmenter =
+  typeof Intl !== "undefined" && typeof Intl.Segmenter === "function"
+    ? new Intl.Segmenter(undefined, { granularity: "grapheme" })
+    : null;
+
+// Split into grapheme clusters so truncation never cuts a flag or ZWJ emoji in half.
+function graphemes(text) {
+  if (!graphemeSegmenter) return Array.from(text);
+  return Array.from(graphemeSegmenter.segment(text), (entry) => entry.segment);
+}
+
 function CanvasChart({ items, kind }) {
   const ref = useRef(null);
   const theme = useTheme();
   useEffect(() => {
     const canvas = ref.current;
     if (!canvas) return;
+    let disposed = false;
     const draw = () => {
+      if (disposed) return;
       const rect = canvas.getBoundingClientRect();
+      if (!rect.width || !rect.height) return;
       const dpr = window.devicePixelRatio || 1;
       canvas.width = rect.width * dpr;
       canvas.height = rect.height * dpr;
@@ -111,27 +135,38 @@ function CanvasChart({ items, kind }) {
       const isLight = document.documentElement.dataset.theme === "light";
       const labelColor = isLight ? "#475569" : "#818fa1";
       const barLabelColor = isLight ? "#475569" : "#9ca3af";
-      ctx.font = "10px sans-serif";
+      // TwemojiFlags provides the flag glyphs Segoe UI Emoji lacks on Windows.
+      ctx.font = CHART_FONT;
+      ctx.textAlign = "left";
       ctx.fillStyle = labelColor;
+      const truncate = (text, maxW) => {
+        if (maxW <= 0) return "";
+        if (ctx.measureText(text).width <= maxW) return text;
+        const ellipsis = "…";
+        const ellipsisWidth = ctx.measureText(ellipsis).width;
+        if (ellipsisWidth > maxW) return "";
+        let out = "";
+        for (const cluster of graphemes(text)) {
+          if (ctx.measureText(out + cluster).width + ellipsisWidth > maxW) break;
+          out += cluster;
+        }
+        return out + ellipsis;
+      };
       if (!items.length) { ctx.fillText("No data", 12, 24); return; }
       if (kind === "bar") {
         const max = Math.max(...items.map(([, v]) => v), 1);
-        const valueWidth = 68;
+        const valueWidth = Math.max(...items.map(([, v]) => ctx.measureText(formatBytes(v)).width));
         const chartWidth = Math.max(0, rect.width - valueWidth - 8);
         const row = Math.max(42, (rect.height - 12) / items.length);
-        const palette = ["#5470c6", "#91cc75", "#fac858", "#ee6666", "#73c0de", "#3ba272", "#fc8452", "#9a60b4", "#ea7ccc"];
         items.forEach(([label, value], i) => {
           const y = i * row + 6;
           const width = Math.max(2, chartWidth * value / max);
           ctx.fillStyle = barLabelColor;
           ctx.textAlign = "left";
           const maxLabelWidth = Math.max(0, chartWidth - 4);
-          let displayLabel = String(label);
-          while (displayLabel.length > 1 && ctx.measureText(displayLabel).width > maxLabelWidth) {
-            displayLabel = `${displayLabel.slice(0, -2)}…`;
-          }
+          const displayLabel = truncate(String(label), maxLabelWidth);
           ctx.fillText(displayLabel, 0, y + 10);
-          ctx.fillStyle = palette[i % palette.length];
+          ctx.fillStyle = PALETTE[i % PALETTE.length];
           ctx.fillRect(0, y + 16, width, 14);
           ctx.fillStyle = barLabelColor;
           ctx.textAlign = "right";
@@ -140,42 +175,53 @@ function CanvasChart({ items, kind }) {
         });
       } else {
         const total = items.reduce((s, [, v]) => s + v, 0) || 1;
-        const legendWidth = Math.max(120, rect.width * .4);
-        const chartWidth = Math.max(0, rect.width - legendWidth);
+        const valueWidth = Math.max(...items.map(([, v]) => ctx.measureText(formatBytes(v)).width));
+        const labelWidth = Math.max(...items.map(([label]) => ctx.measureText(String(label)).width));
+        // Give the legend as much width as its text needs, but keep the pie usable.
+        const desiredLegend = SWATCH + SWATCH_GAP + labelWidth + 8 + valueWidth;
+        const legendWidth = Math.min(desiredLegend, Math.max(0, rect.width - 56), rect.width * 0.62);
+        const gapX = 8;
+        const chartWidth = Math.max(0, rect.width - legendWidth - gapX);
         const cx = chartWidth * .5;
         const cy = rect.height / 2;
         const r = Math.max(0, Math.min(chartWidth * .46, cy - 8));
-        const legendX = chartWidth + 8;
-        const labelX = legendX + 44;
-        const legendY = Math.max(16, cy - items.length * 8 + 5);
+        const legendX = chartWidth + gapX;
+        const labelX = legendX + SWATCH + SWATCH_GAP;
+        const labelMaxWidth = Math.max(0, rect.width - labelX - valueWidth - 8);
+        // Keep the value right next to the longest label instead of pinning it to
+        // the far edge of a wide canvas.
+        const valueX = Math.max(labelX, Math.min(rect.width - valueWidth, labelX + labelMaxWidth + 8));
+        const rowH = Math.min(LEGEND_ROW, Math.max(10, (rect.height - 12) / items.length));
+        const startY = Math.max(rowH, cy - (items.length * rowH) / 2 + rowH / 2);
         let angle = -Math.PI / 2;
         items.forEach(([label, value], i) => {
+          const y = startY + i * rowH;
           const next = angle + value / total * Math.PI * 2;
           ctx.beginPath(); ctx.moveTo(cx, cy); ctx.arc(cx, cy, r, angle, next); ctx.closePath();
-          const sliceColor = ["#5470c6", "#91cc75", "#fac858", "#ee6666", "#73c0de", "#3ba272", "#fc8452", "#9a60b4", "#ea7ccc"][i % 9];
+          const sliceColor = PALETTE[i % PALETTE.length];
           ctx.fillStyle = sliceColor;
           ctx.fill(); angle = next;
-          ctx.fillRect(legendX, legendY - 8 + i * 16, 36, 10);
+          ctx.fillRect(legendX, y - 8, SWATCH, 10);
           ctx.fillStyle = labelColor;
-          const valueText = formatBytes(value);
-          const maxLabelWidth = Math.max(0, rect.width - labelX - 4);
-          const fullLabel = `${label} ${valueText}`;
-          let labelText = fullLabel;
-          while (labelText && ctx.measureText(labelText).width > maxLabelWidth) {
-            labelText = labelText.slice(0, -1);
-          }
-          if (labelText !== fullLabel) {
-            while (labelText && ctx.measureText(`${labelText}…`).width > maxLabelWidth) {
-              labelText = labelText.slice(0, -1);
-            }
-            labelText = `${labelText}…`;
-          }
-          ctx.fillText(labelText, labelX, legendY + i * 16);
+          ctx.textAlign = "left";
+          ctx.fillText(truncate(String(label), labelMaxWidth), labelX, y);
+          ctx.fillText(formatBytes(value), valueX, y);
         });
       }
     };
-    draw(); window.addEventListener("resize", draw);
-    return () => window.removeEventListener("resize", draw);
+    draw();
+    window.addEventListener("resize", draw);
+    // Font-display: swap means the first draw can beat TwemojiFlags; redraw once it settles.
+    if (document.fonts?.load) {
+      document.fonts.load(CHART_FONT).then(() => { if (!disposed) draw(); }, () => {});
+    }
+    if (document.fonts?.ready) {
+      document.fonts.ready.then(() => { if (!disposed) draw(); }, () => {});
+    }
+    return () => {
+      disposed = true;
+      window.removeEventListener("resize", draw);
+    };
   }, [items, kind, theme]);
   return <canvas ref={ref} className="w-full h-full" />;
 }
