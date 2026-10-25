@@ -182,7 +182,7 @@ function CanvasChart({ items, kind }) {
       if (!items.length) { ctx.fillText("No data", 12, 24); return; }
       if (kind === "bar") {
         const max = Math.max(...items.map(([, v]) => v), 1);
-        const valueWidth = Math.max(...items.map(([, v]) => ctx.measureText(formatBytes(v)).width));
+        const valueWidth = Math.max(...items.map(([, v]) => ctx.measureText(formatBytes(v, 1)).width));
         const chartWidth = Math.max(0, rect.width - valueWidth - 8);
         const row = Math.max(42, (rect.height - 12) / items.length);
         items.forEach(([label, value], i) => {
@@ -197,12 +197,12 @@ function CanvasChart({ items, kind }) {
           ctx.fillRect(0, y + 16, width, 14);
           ctx.fillStyle = barLabelColor;
           ctx.textAlign = "right";
-          ctx.fillText(formatBytes(value), rect.width, y + 27);
+          ctx.fillText(formatBytes(value, 1), rect.width, y + 27);
           ctx.textAlign = "left";
         });
       } else {
         const total = items.reduce((s, [, v]) => s + v, 0) || 1;
-        const valueWidth = Math.max(...items.map(([, v]) => ctx.measureText(formatBytes(v)).width));
+        const valueWidth = Math.max(...items.map(([, v]) => ctx.measureText(formatBytes(v, 1)).width));
         const labelWidth = Math.max(...items.map(([label]) => ctx.measureText(String(label)).width));
         // Give the legend as much width as its text needs, but keep the pie usable.
         const desiredLegend = SWATCH + SWATCH_GAP + labelWidth + 8 + valueWidth;
@@ -232,7 +232,7 @@ function CanvasChart({ items, kind }) {
           ctx.fillStyle = labelColor;
           ctx.textAlign = "left";
           ctx.fillText(truncate(String(label), labelMaxWidth), labelX, y);
-          ctx.fillText(formatBytes(value), valueX, y);
+          ctx.fillText(formatBytes(value, 1), valueX, y);
         });
       }
     };
