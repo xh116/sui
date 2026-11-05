@@ -7,7 +7,7 @@
 
 ## 🚀 Live Demo
 
-🔗 [Visit the test site](https://sui.page.gd)
+🔗 [Visit the test site](https://dashboard-sing-box.pages.dev/)
 
 ---
 
@@ -20,7 +20,7 @@ Modern browsers like **Chrome** block mixed content by default, which may preven
 
 To enable login during testing:
 
-1. Open [https://sui.page.gd](https://sui.page.gd) in Chrome  
+1. Open [https://dashboard-sing-box.pages.dev/](https://dashboard-sing-box.pages.dev/) in Chrome  
 2. Click the 🔒 **lock icon** in the address bar  
 3. Select **Site settings**  
 4. Find **Insecure content**  
